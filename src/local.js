@@ -49,21 +49,7 @@ class LocalUpload{
             case 'txt': return 'text/plain';
             default: return `${fileObj.type.split('/')[0]}/${fileObj.name.split('.').pop()}`;
         }
-    };
-    async singlePartPut(uploadUrl, fileObj, hash, fileType){
-        let resp;
-        resp = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': await fileType
-            },
-            body: fileObj
-        }).then((response)=>{
-            console.log(response);
-            return ("upload Success")});
-        console.log(resp);
-        return resp;
-    };
+    }
 
     async signedPost (url, fields, fileObj, fPath){
         //console.log(fields);
