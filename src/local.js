@@ -53,7 +53,7 @@ class LocalUpload{
 
     async signedPost (url, fields, fileObj, fPath){
         //console.log(fields);
-        const form =  new FormData();
+        const form = new FormData();
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
@@ -62,11 +62,16 @@ class LocalUpload{
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
         //form.append('file', createReadStream(fPath));
         console.log(form);
-        return form.submit(url, (err, res) => {
-            if (err) throw err;
-            console.log(`Upload successfull. Response: ${res.statusCode}`); 
-            return res;
-        });
+        const resp  = await fetch(url, {
+            method: 'POST',
+            body: form
+        }).then((response)=>response.json());
+        return resp;
+        // return form.submit(url, (err, res) => {
+        //     if (err) throw err;
+        //     console.log(`Upload successfull. Response: ${res.statusCode}`); 
+        //     return res;
+        // });
     }
 
     constructor(){};
