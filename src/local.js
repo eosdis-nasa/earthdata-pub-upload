@@ -65,7 +65,10 @@ class LocalUpload{
         const resp  = await fetch(url, {
             method: 'POST',
             body: form
-        }).then((response)=>response.status);
+        }).then((response)=>{
+            if (response.status === 204) return 'Upload successfull';
+            else throw new Error(`Upload failed with status ${response.status}`);
+        });
         console.log(resp);
         return resp;
         // return form.submit(url, (err, res) => {
