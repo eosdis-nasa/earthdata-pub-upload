@@ -62,7 +62,7 @@ class LocalUpload{
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
         //form.append('file', createReadStream(fPath));
         console.log(form);
-        const resp  = await fetch(url, {
+        const resp = fetch(url, {
             method: 'POST',
             body: form
         }).then((response)=>{
