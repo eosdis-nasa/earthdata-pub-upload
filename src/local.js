@@ -66,6 +66,7 @@ class LocalUpload{
             method: 'POST',
             body: form
         }).then((response)=>response.status());
+        console.log(resp);
         return resp;
         // return form.submit(url, (err, res) => {
         //     if (err) throw err;
