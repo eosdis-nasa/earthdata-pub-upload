@@ -62,7 +62,7 @@ class LocalUpload{
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
         //form.append('file', createReadStream(fPath));
         console.log(form);
-        return await form.submit(url, (err, res) => {
+        return form.submit(url, (err, res) => {
             if (err) throw err;
             console.log(`Upload successfull. Response: ${res.statusCode}`); 
             return res;
