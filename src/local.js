@@ -62,7 +62,7 @@ class LocalUpload{
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
         //form.append('file', createReadStream(fPath));
         console.log(form);
-        const resp = fetch(url, {
+        const resp = await fetch(url, {
             method: 'POST',
             body: form
         }).then((response)=>{
@@ -70,6 +70,7 @@ class LocalUpload{
             else throw new Error(`Upload failed with status ${response.status}`);
         });
         console.log(resp);
+        console.log('is this even running and if so what is wrong with everything')
         return resp;
         // return form.submit(url, (err, res) => {
         //     if (err) throw err;
