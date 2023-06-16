@@ -60,7 +60,7 @@ class LocalUpload{
         //form.append('x-amz-meta-checksum', await hash);
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
         //form.append('file', createReadStream(fPath));
-        return await form.submit(url, (err, res) => {
+        return await Object.getPrototypeOf(form).submit(url, (err, res) => {
             if (err) throw err;
             console.log(`Upload successfull. Response: ${res.statusCode}`); 
             return res;
