@@ -65,7 +65,7 @@ class LocalUpload{
         const resp  = await fetch(url, {
             method: 'POST',
             body: form
-        }).then((response)=>response.status());
+        }).then((response)=>response.status);
         console.log(resp);
         return resp;
         // return form.submit(url, (err, res) => {
