@@ -58,8 +58,8 @@ class LocalUpload{
             form.append(field, value);
         });
         //form.append('x-amz-meta-checksum', await hash);
-        //fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        form.append('file', createReadStream(fPath));
+        fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
+        //form.append('file', createReadStream(fPath));
         return await form.submit(url, (err, res) => {
             if (err) throw err;
             console.log(`Upload successfull. Response: ${res.statusCode}`); 
@@ -88,8 +88,9 @@ class LocalUpload{
             body: JSON.stringify(payload)
         }).then((response)=>response.json()); //finish fetch
         console.log(uploadUrl);
-        const uploadResult = this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
-        return await uploadResult;
+        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
+        console.log(uploadResult)
+        return uploadResult;
     };
 };
 
