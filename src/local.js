@@ -80,6 +80,7 @@ class LocalUpload{
             checksum_value: await hash,
             ...(submissionId && {submission_id: submissionId})
         };
+        console.log(payload);
         const uploadUrl = await fetch(apiEndpoint, {
             method: 'POST',
             headers: {
