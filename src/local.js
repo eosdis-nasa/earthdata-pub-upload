@@ -1,8 +1,9 @@
 import { createReadStream } from 'fs'
 import { createSHA256 } from 'hash-wasm'
-import mime from 'mime';
+import pkg from 'mime';
 import pkg from 'form-data'
 const FormData =  pkg;
+const mime = pkg;
 
 class LocalUpload{
 
