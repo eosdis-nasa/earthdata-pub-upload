@@ -1,5 +1,6 @@
 import { createReadStream } from 'fs'
 import { createSHA256 } from 'hash-wasm'
+import mime from 'mime';
 import pkg from 'form-data'
 const FormData =  pkg;
 
@@ -41,14 +42,16 @@ class LocalUpload{
     };
 
     async validateFileType(fileObj){
-        console.log(fileObj.type);
-        if(fileObj.type.split('/').pop() !== 'unknown')return fileObj.type;
-        switch(fileObj.name.split('.').pop()){ // added additional cases later
-            case 'png': return 'image/png';
-            case 'txt': return 'text/plain';
-            case 'exe': return '';
-            default: return `${fileObj.type.split('/')[0]}/${fileObj.name.split('.').pop()}`;
-        }
+        fileType = mime.getType(fileObj.name.split('.').pop());
+        if (fileType.contains('application')) return '';
+        else return fileType;
+        // if(fileObj.type.split('/').pop() !== 'unknown')return fileObj.type;
+        // switch(fileObj.name.split('.').pop()){ // added additional cases later
+        //     case 'png': return 'image/png';
+        //     case 'txt': return 'text/plain';
+        //     case 'exe': return '';
+        //     default: return `${fileObj.type.split('/')[0]}/${fileObj.name.split('.').pop()}`;
+        // }
     }
 
     async signedPost (url, fields, fileObj, fPath){
