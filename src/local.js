@@ -43,6 +43,7 @@ class LocalUpload{
 
     async validateFileType(fileObj){
         const fileType = mime.lookup(fileObj.name.split('.').pop());
+        console.log(fileType);
         if (fileType.includes('application')) return '';
         else return fileType;
         // if(fileObj.type.split('/').pop() !== 'unknown')return fileObj.type;
