@@ -46,6 +46,7 @@ class LocalUpload{
         switch(fileObj.name.split('.').pop()){ // added additional cases later
             case 'png': return 'image/png';
             case 'txt': return 'text/plain';
+            case 'exe': return '';
             default: return `${fileObj.type.split('/')[0]}/${fileObj.name.split('.').pop()}`;
         }
     }
@@ -53,7 +54,6 @@ class LocalUpload{
     async signedPost (url, fields, fileObj, fPath){
         
         const form = new FormData();
-        console.log(fields)
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
