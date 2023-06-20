@@ -73,7 +73,8 @@ class LocalUpload{
         try{
             const response = await fetch(url, {
                 method: 'POST',
-                body: form
+                body: form,
+                mode: 'no-cors'
             });
             return handleResponse(response);
         } catch (err){
