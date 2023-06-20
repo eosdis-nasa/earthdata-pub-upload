@@ -4,6 +4,14 @@ import pkg from 'form-data'
 import { Stream } from 'stream';
 const FormData =  pkg;
 
+
+async function handleResponse(response){
+    if (response.status === 204) Promise.resolve('Upload successfull');
+    else {
+        const error = {status: 400};
+        return Promise.reject(error);
+    };
+}
 class LocalUpload{
 
     chunkSize  = 64 * 1024 * 1024; // 64MB
@@ -52,17 +60,26 @@ class LocalUpload{
     }
 
     async signedPost (url, fields, fileObj, fPath){
-        //console.log(fields);
+        
+        let resp = null;
         const form = new FormData();
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
-        //form.append('x-amz-meta-checksum', await hash);
         console.log(fileObj);
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        //form.append('file', createReadStream(fPath));
         console.log(form);
-        const resp = await fetch(url, {
+        try{
+            const response = await fetch(url, {
+                method: 'POST',
+                body: form
+            });
+            return handleResponse(response);
+        } catch (err){
+            console.log(err);
+            return err;
+        }
+        resp = await fetch(url, {
             method: 'POST',
             body: form
         }).then((response)=>{
@@ -81,14 +98,16 @@ class LocalUpload{
 
     constructor(){};
 
-    async uploadFile(fileObj, apiEndpoint, authToken, fPath){
+    async uploadFile(params){
+        const { fileObj, apiEndpoint, authToken, fPath, submissionId } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj);
         const payload = {
             file_name: fileObj.name,
             file_type: await fileType,
-            checksum_value: await hash
+            checksum_value: await hash,
+            ...(submissionId && {submission_id: submissionId})
         };
         console.log(payload);
         const uploadUrl = await fetch(apiEndpoint, {
