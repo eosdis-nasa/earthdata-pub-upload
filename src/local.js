@@ -1,9 +1,8 @@
 import { createReadStream } from 'fs'
 import { createSHA256 } from 'hash-wasm'
-import pkg from 'mime';
+import mime from 'mime-types';
 import pkg from 'form-data'
 const FormData =  pkg;
-const mime = pkg;
 
 class LocalUpload{
 
@@ -43,7 +42,7 @@ class LocalUpload{
     };
 
     async validateFileType(fileObj){
-        fileType = mime.getType(fileObj.name.split('.').pop());
+        fileType = mime.lookup(fileObj.name.split('.').pop());
         if (fileType.contains('application')) return '';
         else return fileType;
         // if(fileObj.type.split('/').pop() !== 'unknown')return fileObj.type;
