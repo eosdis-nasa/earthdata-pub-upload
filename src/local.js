@@ -1,17 +1,8 @@
 import { createReadStream } from 'fs'
 import { createSHA256 } from 'hash-wasm'
 import pkg from 'form-data'
-import { Stream } from 'stream';
 const FormData =  pkg;
 
-
-async function handleResponse(response){
-    if (response.status === 204) Promise.resolve('Upload successfull');
-    else {
-        const error = {status: 400};
-        return Promise.reject(error);
-    };
-}
 class LocalUpload{
 
     chunkSize  = 64 * 1024 * 1024; // 64MB
@@ -61,40 +52,22 @@ class LocalUpload{
 
     async signedPost (url, fields, fileObj, fPath){
         
-        let resp = null;
         const form = new FormData();
         console.log(fields)
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
-        console.log(fileObj);
+
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        console.log(form);
-        // try{
-        //     const response = await fetch(url, {
-        //         method: 'POST',
-        //         body: form
-        //     });
-        //     return handleResponse(response);
-        // } catch (err){
-        //     console.log(err);
-        //     return err;
-        // }
-        resp = await fetch(url, {
+        
+        const resp = await fetch(url, {
             method: 'POST',
             body: form
         }).then((response)=>{
             if (response.status === 204) return 'Upload successfull';
             else throw new Error(`Upload failed with status ${response.status}`);
         });
-        console.log(resp);
-        console.log('is this even running and if so what is wrong with everything')
         return resp;
-        // return form.submit(url, (err, res) => {
-        //     if (err) throw err;
-        //     console.log(`Upload successfull. Response: ${res.statusCode}`); 
-        //     return res;
-        // });
     }
 
     constructor(){};
@@ -110,7 +83,6 @@ class LocalUpload{
             checksum_value: await hash,
             ...(submissionId && {submission_id: submissionId})
         };
-        console.log(payload);
         const uploadUrl = await fetch(apiEndpoint, {
             method: 'POST',
             headers: {
@@ -119,9 +91,7 @@ class LocalUpload{
             },
             body: JSON.stringify(payload)
         }).then((response)=>response.json()); //finish fetch
-        console.log(uploadUrl);
         const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
-        console.log(uploadResult)
         return uploadResult;
     };
 };
