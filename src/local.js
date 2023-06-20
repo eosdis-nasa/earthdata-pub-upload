@@ -63,6 +63,7 @@ class LocalUpload{
         
         let resp = null;
         const form = new FormData();
+        console.log('here')
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
