@@ -1,7 +1,7 @@
 import { createReadStream } from 'fs'
 import { createSHA256 } from 'hash-wasm'
+import mime from 'mime-types';
 import pkg from 'form-data'
-import { Stream } from 'stream';
 const FormData =  pkg;
 
 class LocalUpload{
@@ -42,43 +42,44 @@ class LocalUpload{
     };
 
     async validateFileType(fileObj){
-        console.log(fileObj.type);
-        if(fileObj.type.split('/').pop() !== 'unknown')return fileObj.type;
-        switch(fileObj.name.split('.').pop()){ // added additional cases later
-            case 'png': return 'image/png';
-            case 'txt': return 'text/plain';
-            default: return `${fileObj.type.split('/')[0]}/${fileObj.name.split('.').pop()}`;
-        }
+        const fileType = mime.lookup(fileObj.name.split('.').pop());
+        if (fileType === 'application/x-msdownload'||
+            fileType === 'application/octet-stream') return '';
+        else return fileType;
     }
 
     async signedPost (url, fields, fileObj, fPath){
-        //console.log(fields);
-        const form =  new FormData();
+        
+        const form = new FormData();
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
-        //form.append('x-amz-meta-checksum', await hash);
-        //fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        form.append('file', createReadStream(fPath));
-        return await form.submit(url, (err, res) => {
-            if (err) throw err;
-            console.log(`Upload successfull. Response: ${res.statusCode}`); 
-            return res;
+
+        fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
+        
+        const resp = await fetch(url, {
+            method: 'POST',
+            body: form
+        }).then((response)=>{
+            if (response.status === 204) return 'Upload successfull';
+            else throw new Error(`Upload failed with status ${response.status}`);
         });
+        return resp;
     }
 
     constructor(){};
 
-    async uploadFile(fileObj, apiEndpoint, authToken, fPath){
+    async uploadFile(params){
+        const { fileObj, apiEndpoint, authToken, fPath, submissionId } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj);
         const payload = {
             file_name: fileObj.name,
             file_type: await fileType,
-            checksum_value: await hash
+            checksum_value: await hash,
+            ...(submissionId && {submission_id: submissionId})
         };
-        console.log(payload);
         const uploadUrl = await fetch(apiEndpoint, {
             method: 'POST',
             headers: {
@@ -87,9 +88,8 @@ class LocalUpload{
             },
             body: JSON.stringify(payload)
         }).then((response)=>response.json()); //finish fetch
-        console.log(uploadUrl);
-        const uploadResult = this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
-        return await uploadResult;
+        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
+        return uploadResult;
     };
 };
 
