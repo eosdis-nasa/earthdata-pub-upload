@@ -107,8 +107,6 @@ class LocalUpload{
             console.error('Download failed');
             return ({error: 'Download failed'})
         }
-        
-        console.log(downloadUrl);
         if(downloadUrl.error) return ({error: downloadUrl.error});
 
         try{
