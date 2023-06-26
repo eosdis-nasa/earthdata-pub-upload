@@ -93,14 +93,23 @@ class LocalUpload{
     };
 
     async downloadFile(key, apiEndpoint, authToken){
+        let downloadUrl;
         const apiUrl = `${apiEndpoint}?key=${key}`;
-        const downloadUrl = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            }
-        }).then((response)=>response.json());
+        try{
+            downloadUrl = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }).then((response)=>response.json());
+        }catch(err){
+            console.error('Download failed');
+            return ({error: 'Download failed'})
+        }
+        
+        console.log(downloadUrl);
+        if(downloadUrl.error) return ({error: downloadUrl.error});
 
         try{
             const resp = await fetch(downloadUrl.url)
