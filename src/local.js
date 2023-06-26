@@ -1,7 +1,7 @@
 import { createReadStream } from 'fs'
 import { createSHA256 } from 'hash-wasm'
 import pkg from 'form-data'
-import { Stream } from 'stream';
+import { saveAs } from 'file-saver';
 const FormData =  pkg;
 
 class LocalUpload{
@@ -90,6 +90,27 @@ class LocalUpload{
         console.log(uploadUrl);
         const uploadResult = this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
         return await uploadResult;
+    };
+
+    async downloadFile(key, apiEndpoint, authToken){
+        const apiUrl = `${apiEndpoint}?key=${key}`;
+        const downloadUrl = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        }).then((response)=>response.json());
+
+        try{
+            const resp = await fetch(downloadUrl.url)
+            const blob = await resp.blob();
+            saveAs(blob, key.split('/').pop());
+        } catch (err){
+            console.error('Download failed');
+            return ({error: 'Download failed'})
+        };
+        return ('Download successfull');
     };
 };
 
