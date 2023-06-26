@@ -62,7 +62,7 @@ class LocalUpload{
             body: form
         }).then((response)=>{
             if (response.status === 204) return 'Upload successfull';
-            else throw new Error(`Upload failed with status ${response.status}`);
+            else return ({error:`Upload failed with status ${response.status}`});
         });
         return resp;
     }
@@ -70,6 +70,7 @@ class LocalUpload{
     constructor(){};
 
     async uploadFile(params){
+        let uploadUrl
         const { fileObj, apiEndpoint, authToken, fPath, submissionId } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
@@ -80,14 +81,20 @@ class LocalUpload{
             checksum_value: await hash,
             ...(submissionId && {submission_id: submissionId})
         };
-        const uploadUrl = await fetch(apiEndpoint, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        }).then((response)=>response.json()); //finish fetch
+        try {
+            uploadUrl = await fetch(apiEndpoint, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            }).then((response)=>response.json());
+            if(uploadUrl.error) return ({error: uploadUrl.error});
+        } catch (err) {
+            return ({error: "Failed to get upload URL"});
+        }
+        
         const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
         return uploadResult;
     };
