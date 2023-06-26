@@ -1,7 +1,7 @@
 import { createReadStream } from 'fs'
 import { createSHA256 } from 'hash-wasm'
 import pkg from 'form-data'
-import { saveAs } from 'file-saver';
+import saveAs from 'file-saver';
 const FormData =  pkg;
 
 class LocalUpload{
@@ -112,11 +112,11 @@ class LocalUpload{
         if(downloadUrl.error) return ({error: downloadUrl.error});
 
         try{
-            const resp = await fetch(downloadUrl.url)
+            const resp = await fetch(downloadUrl)
             const blob = await resp.blob();
             saveAs(blob, key.split('/').pop());
         } catch (err){
-            console.error('Download failed');
+            console.error(err);
             return ({error: 'Download failed'})
         };
         return ('Download successfull');
