@@ -2,6 +2,7 @@ import { createReadStream } from 'fs'
 import { createSHA256 } from 'hash-wasm'
 import mime from 'mime-types';
 import pkg from 'form-data'
+import saveAs from 'file-saver';
 const FormData =  pkg;
 
 class LocalUpload{
@@ -97,6 +98,34 @@ class LocalUpload{
         
         const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
         return uploadResult;
+    };
+
+    async downloadFile(key, apiEndpoint, authToken){
+        let downloadUrl;
+        const apiUrl = `${apiEndpoint}?key=${key}`;
+        try{
+            downloadUrl = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }).then((response)=>response.json());
+        }catch(err){
+            console.error('Download failed');
+            return ({error: 'Download failed'})
+        }
+        if(downloadUrl.error) return ({error: downloadUrl.error});
+
+        try{
+            const resp = await fetch(downloadUrl)
+            const blob = await resp.blob();
+            saveAs(blob, key.split('/').pop());
+        } catch (err){
+            console.error(err);
+            return ({error: 'Download failed'})
+        };
+        return ('Download successfull');
     };
 };
 
