@@ -72,7 +72,7 @@ class LocalUpload{
 
     async uploadFile(params){
         let uploadUrl
-        const { fileObj, apiEndpoint, authToken, fPath, submissionId } = params;
+        const { fileObj, apiEndpoint, authToken, submissionId, endpointParams, fPath } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj);
@@ -80,7 +80,8 @@ class LocalUpload{
             file_name: fileObj.name,
             file_type: await fileType,
             checksum_value: await hash,
-            ...(submissionId && {submission_id: submissionId})
+            ...(submissionId && {submission_id: submissionId}),
+            ...endpointParams
         };
         try {
             uploadUrl = await fetch(apiEndpoint, {
@@ -95,9 +96,13 @@ class LocalUpload{
         } catch (err) {
             return ({error: "Failed to get upload URL"});
         }
+        try{
+            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
+            return uploadResult;
+        }catch(err){
+            return ({error: "failed to upload to bucket"});
+        }
         
-        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
-        return uploadResult;
     };
 
     async downloadFile(key, apiEndpoint, authToken){
