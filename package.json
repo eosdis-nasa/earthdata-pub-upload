@@ -4,6 +4,9 @@
   "description": "utility for uploading data to s3 while authenticating through cognito using presigned urls",
   "type": "module",
   "main": "src/local.js",
+  "files": [
+    "src"
+  ],
   "scripts": {
     "sit-test": "node ./test/sitTesting.js"
   },
@@ -16,6 +19,7 @@
   "dependencies": {
     "@supercharge/fs": "^3.4.0",
     "@web-std/file": "^3.0.2",
+    "file-saver": "^2.0.5",
     "form-data": "^4.0.0",
     "hash-wasm": "^4.9.0",
     "mime-types": "^2.1.35"

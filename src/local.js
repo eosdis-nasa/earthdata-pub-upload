@@ -2,6 +2,7 @@ import { createReadStream } from 'fs'
 import { createSHA256 } from 'hash-wasm'
 import mime from 'mime-types';
 import pkg from 'form-data'
+import saveAs from 'file-saver';
 const FormData =  pkg;
 
 class LocalUpload{
@@ -62,7 +63,7 @@ class LocalUpload{
             body: form
         }).then((response)=>{
             if (response.status === 204) return 'Upload successfull';
-            else throw new Error(`Upload failed with status ${response.status}`);
+            else return ({error:`Upload failed with status ${response.status}`});
         });
         return resp;
     }
@@ -70,6 +71,7 @@ class LocalUpload{
     constructor(){};
 
     async uploadFile(params){
+        let uploadUrl
         const { fileObj, apiEndpoint, authToken, fPath, submissionId } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
@@ -80,16 +82,50 @@ class LocalUpload{
             checksum_value: await hash,
             ...(submissionId && {submission_id: submissionId})
         };
-        const uploadUrl = await fetch(apiEndpoint, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        }).then((response)=>response.json()); //finish fetch
+        try {
+            uploadUrl = await fetch(apiEndpoint, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            }).then((response)=>response.json());
+            if(uploadUrl.error) return ({error: uploadUrl.error});
+        } catch (err) {
+            return ({error: "Failed to get upload URL"});
+        }
+        
         const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
         return uploadResult;
+    };
+
+    async downloadFile(key, apiEndpoint, authToken){
+        let downloadUrl;
+        const apiUrl = `${apiEndpoint}?key=${key}`;
+        try{
+            downloadUrl = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }).then((response)=>response.json());
+        }catch(err){
+            console.error('Download failed');
+            return ({error: 'Download failed'})
+        }
+        if(downloadUrl.error) return ({error: downloadUrl.error});
+
+        try{
+            const resp = await fetch(downloadUrl)
+            const blob = await resp.blob();
+            saveAs(blob, key.split('/').pop());
+        } catch (err){
+            console.error(err);
+            return ({error: 'Download failed'})
+        };
+        return ('Download successfull');
     };
 };
 
