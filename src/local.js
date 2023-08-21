@@ -38,7 +38,7 @@ class LocalUpload{
             )
             await hashChunk(chunk);
         }
-        const hash = this.hasher.digest('binary').btoa('base64');
+        const hash = this.hasher.digest('binary').toString('base64');
         return Promise.resolve(hash);
     };
 
