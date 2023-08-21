@@ -80,7 +80,7 @@ class LocalUpload{
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj);
         const read = new FileReader();
-        read.readFileSync(fileObj);
+        read.readAaBlob(fileObj);
         const testHash = await sha256(fileObj)
         const payload = {
             file_name: fileObj.name,
