@@ -38,7 +38,7 @@ class LocalUpload{
             )
             await hashChunk(chunk);
         }
-        const hash = this.hasher.digest('hex');
+        const hash = this.hasher.digest();
         return Promise.resolve(hash);
     };
 
@@ -61,6 +61,7 @@ class LocalUpload{
             method: 'POST',
             headers: {
                 'x-amz-checksum-sha256': hash,
+                'x-amz-checksum-algorithm': 'SHA256'
             },
             body: form
         }).then((response)=>{
