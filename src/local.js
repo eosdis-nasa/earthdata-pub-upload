@@ -49,7 +49,7 @@ class LocalUpload{
         else return fileType;
     }
 
-    async signedPost (url, fields, fileObj, fPath){
+    async signedPost (url, fields, fileObj, hash, fPath){
         
         const form = new FormData();
         Object.entries(fields).forEach(([field, value]) => {
@@ -60,6 +60,9 @@ class LocalUpload{
         
         const resp = await fetch(url, {
             method: 'POST',
+            headers: {
+                'x-amz-content-sha256': hash,
+            },
             body: form
         }).then((response)=>{
             if (response.status === 204) return 'Upload successfull';
@@ -96,7 +99,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         
-        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, fPath? fPath: null);
+        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, hash, fPath? fPath: null);
         return uploadResult;
     };
 
