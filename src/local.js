@@ -38,7 +38,7 @@ class LocalUpload{
             )
             await hashChunk(chunk);
         }
-        const hash = this.hasher.digest('base64');
+        const hash = this.hasher.digest('binary');
         return Promise.resolve(hash);
     };
 
@@ -59,6 +59,9 @@ class LocalUpload{
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
         const resp = await fetch(url, {
             method: 'POST',
+            headers: {
+                'x-amz-content-sha256': hash,
+            },
             body: form
         }).then((response)=>{
             if (response.status === 204) return 'Upload successfull';
