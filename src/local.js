@@ -1,5 +1,5 @@
 import { createReadStream } from 'fs'
-import { createSHA256 } from 'hash-wasm'
+import { createSHA256, sha256 } from 'hash-wasm'
 import mime from 'mime-types';
 import pkg from 'form-data'
 import saveAs from 'file-saver';
@@ -79,10 +79,11 @@ class LocalUpload{
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj);
+        const testHash = await sha256(fileObj)
         const payload = {
             file_name: fileObj.name,
             file_type: await fileType,
-            checksum_value: btoa(await hash),
+            checksum_value: testHash,
             ...(submissionId && {submission_id: submissionId})
         };
         try {
@@ -99,7 +100,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         
-        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, btoa(await hash), fPath? fPath: null);
+        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, testHash, fPath? fPath: null);
         return uploadResult;
     };
 
