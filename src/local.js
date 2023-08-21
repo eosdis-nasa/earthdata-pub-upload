@@ -57,12 +57,9 @@ class LocalUpload{
         });
 
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        console.log(fields)
+        console.log(fields.x-amz-content-sha256)
         const resp = await fetch(url, {
             method: 'POST',
-            headers: {
-                'x-amz-content-sha256': fields.x-amz-content-sha256,
-            },
             body: form
         }).then((response)=>{
             if (response.status === 204) return 'Upload successfull';
