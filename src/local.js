@@ -38,8 +38,8 @@ class LocalUpload{
             )
             await hashChunk(chunk);
         }
-        const hash = this.hasher.digest();
-        return Promise.resolve(hash);
+        const hash = this.hasher.digest('binary');
+        return Promise.resolve(btoa(hash));
     };
 
     async validateFileType(fileObj){
