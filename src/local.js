@@ -79,6 +79,8 @@ class LocalUpload{
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj);
+        const read = new FileReader();
+        read.readFileSync(fileObj);
         const testHash = await sha256(fileObj)
         const payload = {
             file_name: fileObj.name,
