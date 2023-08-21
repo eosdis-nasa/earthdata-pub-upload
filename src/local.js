@@ -57,7 +57,6 @@ class LocalUpload{
         });
 
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        console.log(fields.x-amz-content-sha256)
         const resp = await fetch(url, {
             method: 'POST',
             body: form
