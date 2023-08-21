@@ -99,7 +99,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         
-        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, hash, fPath? fPath: null);
+        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null);
         return uploadResult;
     };
 
