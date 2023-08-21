@@ -39,7 +39,7 @@ class LocalUpload{
             await hashChunk(chunk);
         }
         const hash = this.hasher.digest('binary');
-        return Promise.resolve(btoa(hash));
+        return Promise.resolve(hash);
     };
 
     async validateFileType(fileObj){
@@ -82,7 +82,7 @@ class LocalUpload{
         const payload = {
             file_name: fileObj.name,
             file_type: await fileType,
-            checksum_value: await hash,
+            checksum_value: btoa(await hash),
             ...(submissionId && {submission_id: submissionId})
         };
         try {
@@ -99,7 +99,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         
-        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null);
+        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, btoa(await hash), fPath? fPath: null);
         return uploadResult;
     };
 
