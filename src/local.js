@@ -16,6 +16,12 @@ async function unit8ToBase64(unit8Array) {
     return base64url.slice(base64url.indexOf(',') + 1);        
 }
 
+async function hexToBase64(hexStr){
+    return btoa([...hexStr].reduce((acc, _, i) =>
+        acc += !(i - 1 & 1) ? String.fromCharCode(parseInt(hexStr.substring(i - 1, i + 1), 16)) : "" 
+    ,""));
+}
+
 class LocalUpload{
 
     chunkSize  = 64 * 1024 * 1024; // 64MB
@@ -49,8 +55,8 @@ class LocalUpload{
             )
             await hashChunk(chunk);
         }
-        const hash = this.hasher.digest('binary');
-        const hashBase64 = await unit8ToBase64(hash);
+        const hash = this.hasher.digest('hex');
+        const hashBase64 = await hexToBase64(hash);
         return Promise.resolve(hashBase64);
     };
 
