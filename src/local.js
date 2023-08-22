@@ -16,26 +16,23 @@ async function unit8ToBase64(unit8Array) {
     return base64url.slice(base64url.indexOf(',') + 1);        
 }
 
-async function hexToBase64(hexStr){
-    return btoa([...hexStr].reduce((acc, _, i) =>
-        acc += !(i - 1 & 1) ? String.fromCharCode(parseInt(hexStr.substring(i - 1, i + 1), 16)) : "" 
-    ,""));
-}
-
 class LocalUpload{
 
     chunkSize  = 64 * 1024 * 1024; // 64MB
     maxFileSize = 5 * 1024 * 1024 * 1024; // 5GB
+    fileReader = new FileReader();
     hasher = null;
+
+    
 
     hashChunk(chunk){
         return new Promise((resolve, reject) => {
-             fileReader.onload = async (e) => {
+             this.fileReader.onload = async (e) => {
                 const view = new Uint8Array(e.target.result);
                 this.hasher.update(view);
                 resolve();
             };
-            fileReader.readAsArrayBuffer(chunk);
+            this.fileReader.readAsArrayBuffer(chunk);
         });
     }
 
@@ -46,17 +43,16 @@ class LocalUpload{
             this.hasher = await createSHA256();
         }
 
-        const chunkNumber = Math.floor(fileObj.size / this.hunkSize);
-
-        for (let i = 0; i < chunkNumber; i++){
+        const chunkNumber = Math.floor(fileObj.size / this.chunkSize);
+        for (let i = 0; i <= chunkNumber; i++){
             const chunk = fileObj.slice(
-                i * chunkSize,
-                Math.min(chunkSize * (i + 1), fileObj.size)
+                i * this.chunkSize,
+                Math.min(this.chunkSize * (i + 1), fileObj.size)
             )
-            await hashChunk(chunk);
+            await this.hashChunk(chunk);
         }
-        const hash = this.hasher.digest('hex');
-        const hashBase64 = await hexToBase64(hash);
+        const hash = this.hasher.digest('binary');
+        const hashBase64 = await unit8ToBase64(hash);
         return Promise.resolve(hashBase64);
     };
 
