@@ -5,6 +5,17 @@ import pkg from 'form-data'
 import saveAs from 'file-saver';
 const FormData =  pkg;
 
+async function unit8ToBase64(unit8Array) {
+    // use a FileReader to generate a base64 data URI:
+    const base64url = await new Promise(r => {
+        const reader = new FileReader()
+        reader.onload = () => r(reader.result)
+        reader.readAsDataURL(new Blob([unit8Array]))
+    });
+    // remove the `data:...;base64,` part from the start
+    return base64url.slice(base64url.indexOf(',') + 1);        
+}
+
 class LocalUpload{
 
     chunkSize  = 64 * 1024 * 1024; // 64MB
@@ -38,8 +49,9 @@ class LocalUpload{
             )
             await hashChunk(chunk);
         }
-        const hash = this.hasher.digest('hex');
-        return Promise.resolve(hash);
+        const hash = this.hasher.digest('binary');
+        const hashBase64 = await unit8ToBase64(hash);
+        return Promise.resolve(hashBase64);
     };
 
     async validateFileType(fileObj){
@@ -78,14 +90,11 @@ class LocalUpload{
         const { fileObj, apiEndpoint, authToken, fPath, submissionId } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
-        const fileType = this.validateFileType(fileObj);
-        const read = new FileReader();
-        read.readAaBlob(fileObj);
-        const testHash = await sha256(fileObj)
+        const fileType = this.validateFileType(fileObj)
         const payload = {
             file_name: fileObj.name,
             file_type: await fileType,
-            checksum_value: testHash,
+            checksum_value: await hash,
             ...(submissionId && {submission_id: submissionId})
         };
         try {
@@ -102,7 +111,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         
-        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, testHash, fPath? fPath: null);
+        const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null);
         return uploadResult;
     };
 
