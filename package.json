@@ -12,10 +12,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "ssh://git@git.earthdata.nasa.gov:7999/edpub/upload.git"
+    "url": "git@github.com:eosdis-nasa/earthdata-pub-upload.git"
   },
   "author": "Davis Gaunt",
-  "license": "Apache-2.0",
+  "license": "BSD 3-Clause License",
   "dependencies": {
     "@supercharge/fs": "^3.4.0",
     "@web-std/file": "^3.0.2",
