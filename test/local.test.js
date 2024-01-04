@@ -9,12 +9,10 @@ describe('LocalUpload', () => {
     it('should upload a file', async () => {
         const authToken = process.env.AUTH_TOKEN;
         const filePath = './test/test_files/test01.txt';
-        const fStream = new fs.createReadStream(filePath, {highWaterMark: 32});
 
         global.fetch = jest.fn();
         global.fetch.mockImplementationOnce((endpoint, payload) =>{
             const msgPayload = JSON.parse(payload.body);
-            console.log(msgPayload.checksum_value);
             expect(msgPayload.checksum_value).toEqual('d41d8cd98f00b204e9800998ecf8427e');
             return Promise.resolve({
                 status: 200,
@@ -30,25 +28,40 @@ describe('LocalUpload', () => {
                 })
             })
         })
-        global.fetch.mockResolvedValueOnce({
-            status: 204
+        global.fetch.mockImplementationOnce((endpoint, payload) =>{
+            return Promise.resolve({status: 204})
+        })
+        global.FileReader = jest.fn().mockImplementation(() => {
+            return {
+                readAsArrayBuffer: jest.fn(),
+                readAsDataURL: jest.fn(),
+                onload: jest.fn(),
+                onerror: jest.fn(),
+            };
+        });
+        const mockGenerateHash = jest.spyOn(LocalUpload.prototype, 'generateHash');
+        mockGenerateHash.mockResolvedValueOnce('d41d8cd98f00b204e9800998ecf8427e');
+
+        const uploadResp = await new Promise((resolve, reject) => {
+            const fStream = new fs.createReadStream(filePath, {highWaterMark: 32});
+            const data = []
+            var resp = null
+            fStream.on('data', function (chunk){
+                data.push(chunk);
+            })
+            fStream.on('end', function () {
+                fStream.close();
+            })
+            return fStream.on('close', async function () {
+                const fSize  = fs.promises.stat(filePath).then((stat)=>{return stat.size});
+                const fileObj = new File(data, filePath.split('/').pop(), {type: 'text/plain', size: fSize})
+                const upload = new LocalUpload();
+                resp = await upload.uploadFile({fileObj, api_endpoint:"https://fake/upload/url", authToken, fPath:filePath})
+                console.log(resp);  
+                resolve(resp);   
+            })
         });
 
-        const data = []
-        let resp = null
-        fStream.on('data', function (chunk){
-            data.push(chunk);
-        })
-        fStream.on('end', function () {
-            fStream.close();
-        })
-        fStream.on('close', function () {
-            const fSize  = fs.promises.stat(filePath).then((stat)=>{return stat.size});
-            const fileObj = new File(data, filePath.split('/').pop(), {type: 'text/plain', size: fSize})
-            console.log("help");
-            const upload = new LocalUpload();
-            resp = upload.uploadFile(fileObj, "https://fake/upload/url", authToken, filePath)
-        })
-        expect(resp).toEqual('Upload successfull');
+        expect(uploadResp).toEqual('Upload successfull');
     });
 });
