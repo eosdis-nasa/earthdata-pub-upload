@@ -2,7 +2,6 @@
   "name": "edpub-data-upload-utility",
   "version": "1.0.0",
   "description": "utility for uploading data to s3 while authenticating through cognito using presigned urls",
-  "type": "module",
   "main": "src/local.js",
   "files": [
     "src"
@@ -23,13 +22,15 @@
     "file-saver": "^2.0.5",
     "form-data": "^4.0.0",
     "hash-wasm": "^4.9.0",
-    "jest": "^29.7.0",
     "jest-bamboo-formatter": "^1.0.0",
     "mime-types": "^2.1.35"
   },
   "devDependencies": {
+    "@babel/core": "^7.23.7",
     "@babel/plugin-transform-modules-commonjs": "^7.23.3",
-    "@babel/preset-env": "^7.23.6",
-    "babel-jest": "^29.7.0"
+    "@babel/preset-env": "^7.23.7",
+    "@babel/preset-modules": "^0.1.6",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0"
   }
 }

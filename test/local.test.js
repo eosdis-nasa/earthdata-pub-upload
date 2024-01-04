@@ -1,6 +1,9 @@
-import LocalUpload from "../src/local.js";
-import {File} from '@web-std/file';
-import fs from 'fs';
+const LocalUpload = require('../src/local.js');
+
+const webStdFile = require('@web-std/file');
+const File = webStdFile.File;
+
+const fs = require('fs');
 
 describe('LocalUpload', () => {
     it('should upload a file', async () => {

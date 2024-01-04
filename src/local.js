@@ -1,8 +1,15 @@
-import { createReadStream } from 'fs'
-import { createSHA256 } from 'hash-wasm'
-import mime from 'mime-types';
-import pkg from 'form-data'
-import saveAs from 'file-saver';
+const fs = require('fs');
+const createReadStream = fs.createReadStream;
+
+const hashWasm = require('hash-wasm');
+const createSHA256 = hashWasm.createSHA256;
+
+const mime = require('mime-types');
+
+const pkg = require('form-data');
+
+const fileSaver = require('file-saver');
+const saveAs = fileSaver.saveAs;
 const FormData =  pkg;
 
 class LocalUpload{
@@ -129,4 +136,4 @@ class LocalUpload{
     };
 };
 
-export default LocalUpload;
+module.exports =  LocalUpload;
