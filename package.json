@@ -1,5 +1,5 @@
 {
-  "name": "edpub-data-upload-utility",
+  "name": "earthdata-pub-upload",
   "version": "1.0.0",
   "description": "utility for uploading data to s3 while authenticating through cognito using presigned urls",
   "main": "src/local.js",
@@ -12,10 +12,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "ssh://git@git.earthdata.nasa.gov:7999/edpub/upload.git"
+    "url": "https://github.com/eosdis-nasa/earthdata-pub-upload.git"
   },
   "author": "Davis Gaunt",
-  "license": "Apache-2.0",
+  "license": "BSD 3-Clause License",
   "dependencies": {
     "@supercharge/fs": "^3.4.0",
     "@web-std/file": "^3.0.2",

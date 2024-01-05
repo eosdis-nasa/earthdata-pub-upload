@@ -1,3 +1,4 @@
+
 const fs = require('fs');
 const hashWasm = require('hash-wasm');
 const mime = require('mime-types');
@@ -8,6 +9,17 @@ const createReadStream = fs.createReadStream;
 const createSHA256 = hashWasm.createSHA256;
 const saveAs = fileSaver.saveAs;
 const FormData = formData;
+
+async function unit8ToBase64(unit8Array) {
+    // use a FileReader to generate a base64 data URI:
+    const base64url = await new Promise(r => {
+        const reader = new FileReader()
+        reader.onload = () => r(reader.result)
+        reader.readAsDataURL(new Blob([unit8Array]))
+    });
+    // remove the `data:...;base64,` part from the start
+    return base64url.slice(base64url.indexOf(',') + 1);        
+}
 
 async function unit8ToBase64(unit8Array) {
     // use a FileReader to generate a base64 data URI:
