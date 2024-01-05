@@ -1,9 +1,25 @@
-import { createReadStream } from 'fs'
-import { createSHA256, sha256 } from 'hash-wasm'
-import mime from 'mime-types';
-import pkg from 'form-data'
-import saveAs from 'file-saver';
-const FormData =  pkg;
+
+const fs = require('fs');
+const hashWasm = require('hash-wasm');
+const mime = require('mime-types');
+const formData = require('form-data');
+const fileSaver = require('file-saver');
+
+const createReadStream = fs.createReadStream;
+const createSHA256 = hashWasm.createSHA256;
+const saveAs = fileSaver.saveAs;
+const FormData = formData;
+
+async function unit8ToBase64(unit8Array) {
+    // use a FileReader to generate a base64 data URI:
+    const base64url = await new Promise(r => {
+        const reader = new FileReader()
+        reader.onload = () => r(reader.result)
+        reader.readAsDataURL(new Blob([unit8Array]))
+    });
+    // remove the `data:...;base64,` part from the start
+    return base64url.slice(base64url.indexOf(',') + 1);        
+}
 
 async function unit8ToBase64(unit8Array) {
     // use a FileReader to generate a base64 data URI:
@@ -69,7 +85,6 @@ class LocalUpload{
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
-
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
         const resp = await fetch(url, {
             method: 'POST',
@@ -150,4 +165,4 @@ class LocalUpload{
     };
 };
 
-export default LocalUpload;
+module.exports = LocalUpload;
