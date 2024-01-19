@@ -6,6 +6,7 @@ const authToken = process.env.AUTH_TOKEN;
 const filePath = './test/test_files/test01.txt';
 const fStream = new fs.createReadStream(filePath, {highWaterMark: 32});
 const key = 'ef229725-1cad-485e-a72b-a276d2ca3175/35672b6e-caeb-46b9-a6e8-74599dc07163/848bd037-b09d-4f6b-9811-3bec1fde0f0b/ISS_LIS_SC_V2.2_20230620_185353_NRT.hdf'
+let fileObj = null
 
 const data = []
 fStream.on('data', function (chunk){
