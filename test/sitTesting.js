@@ -19,7 +19,20 @@ fStream.on('close', function () {
     const fSize  = fs.promises.stat(filePath).then((stat)=>{return stat.size});
     const fileObj = new File(data, filePath.split('/').pop(), {type: 'text/plain', size: fSize})
     const upload = new LocalUpload();
+<<<<<<< HEAD
     upload.uploadFile(fileObj, "https://pub.sit.earthdata.nasa.gov/api/data/upload/getPutUrl", authToken, filePath)
+=======
+    upload.uploadFile({
+        fileObj, 
+        apiEndpoint: "https://pub.sit.earthdata.nasa.gov/api/data/upload/getPutUrl", 
+        authToken, 
+        filePath,
+        endpointParams: {
+            prefix: 'test',
+            daac_id: 'ef229725-1cad-485e-a72b-a276d2ca3175'
+        }
+    }).then((resp)=>{console.log(resp)})
+>>>>>>> b308ef89395a03a80b42937ff11e3a6b4b977d6b
 })
 
 // const download = new LocalUpload();
