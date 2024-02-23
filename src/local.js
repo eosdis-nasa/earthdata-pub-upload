@@ -101,7 +101,6 @@ class LocalUpload{
     async uploadFile(params){
         let uploadUrl
         const { fileObj, apiEndpoint, authToken, submissionId, endpointParams, fPath } = params;
-        console.log(fileObj)
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj)
