@@ -9,6 +9,9 @@ const createSHA256 = hashWasm.createSHA256;
 const saveAs = fileSaver.saveAs;
 const FormData = formData;
 
+// Ignoring for coverage due to an inability to meningfully mock
+// File and FileReader objects in the test environment
+/* istanbul ignore next */
 async function unit8ToBase64(unit8Array) {
     // use a FileReader to generate a base64 data URI:
     const base64url = await new Promise(r => {
@@ -24,11 +27,14 @@ class LocalUpload{
 
     chunkSize  = 64 * 1024 * 1024; // 64MB
     maxFileSize = 5 * 1024 * 1024 * 1024; // 5GB
+    /* istanbul ignore next */
     fileReader = new FileReader();
     hasher = null;
 
     
-
+    // Ignoring for coverage due to an inability to meningfully mock
+    // File and FileReader objects in the test environment
+   /* istanbul ignore next */
     hashChunk(chunk){
         return new Promise((resolve, reject) => {
              this.fileReader.onload = async (e) => {
@@ -39,7 +45,9 @@ class LocalUpload{
             this.fileReader.readAsArrayBuffer(chunk);
         });
     }
-
+    // Ignoring for coverage due to an inability to meningfully mock
+    //File and FileReader objects in the test environment
+    /* istanbul ignore next */
     async generateHash(fileObj){
         if (this.hasher){
             this.hasher.init();
@@ -93,6 +101,7 @@ class LocalUpload{
     async uploadFile(params){
         let uploadUrl
         const { fileObj, apiEndpoint, authToken, submissionId, endpointParams, fPath } = params;
+        console.log(fileObj)
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj)
@@ -124,6 +133,9 @@ class LocalUpload{
         }
     };
 
+    // Ignoring coverage due to an inability to meningfully mock fetch
+    // and retain the ability to test the download functionality
+    /* istanbul ignore next */
     async downloadFile(key, apiEndpoint, authToken){
         let downloadUrl;
         const apiUrl = `${apiEndpoint}?key=${key}`;
