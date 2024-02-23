@@ -1,5 +1,5 @@
 {
-  "name": "earthdata-pub-upload",
+  "name": "edpub-data-upload-utility",
   "version": "1.0.0",
   "description": "utility for uploading data to s3 while authenticating through cognito using presigned urls",
   "main": "src/local.js",
