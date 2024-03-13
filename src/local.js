@@ -75,26 +75,33 @@ class LocalUpload{
         else return fileType;
     }
 
-    async signedPost (url, fields, fileObj, hash, fPath){
-        
+    async signedPost(url, fields, fileObj, hash, fPath, onProgress) {
         const form = new FormData();
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
-        fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        const resp = await fetch(url, {
+        fPath ? form.append('file', createReadStream(fPath)) : form.append('file', fileObj);
+    
+        const options = {
             method: 'POST',
             headers: {
                 'x-amz-checksum-sha256': hash,
                 'x-amz-checksum-algorithm': 'SHA256'
             },
             body: form
-        }).then((response)=>{
-            if (response.status === 204) return 'Upload successfull';
-            else return ({error:`Upload failed with status ${response.status}`});
+        };
+    
+        // Add onUploadProgress callback to track upload progress
+        if (onProgress && typeof onProgress === 'function') {
+            options.onUploadProgress = onProgress;
+        }
+    
+        const resp = await fetch(url, options).then((response) => {
+            if (response.status === 204) return 'Upload successful';
+            else return { error: `Upload failed with status ${response.status}` };
         });
         return resp;
-    }
+    }    
 
     constructor(){};
 
@@ -124,8 +131,14 @@ class LocalUpload{
         } catch (err) {
             return ({error: "Failed to get upload URL"});
         }
+
+        const onProgress = (progressEvent) => {
+            const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+            console.log(`Upload progress: ${progress}%`);
+        };
+
         try{
-            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null);
+            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null, onProgress);
             return uploadResult;
         }catch(err){
             return ({error: "failed to upload to bucket"});
