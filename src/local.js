@@ -75,26 +75,44 @@ class LocalUpload{
         else return fileType;
     }
 
-    async signedPost (url, fields, fileObj, hash, fPath){
-        
+    
+
+    async signedPost(url, fields, fileObj, hash, fPath, onProgress) {
         const form = new FormData();
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
-        fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        const resp = await fetch(url, {
+        fPath ? form.append('file', createReadStream(fPath)) : form.append('file', fileObj);
+    
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'x-amz-checksum-sha256': hash,
-                'x-amz-checksum-algorithm': 'SHA256'
+                'x-amz-checksum-algorithm': 'SHA256',
             },
-            body: form
-        }).then((response)=>{
-            if (response.status === 204) return 'Upload successfull';
-            else return ({error:`Upload failed with status ${response.status}`});
+            body: form,
         });
-        return resp;
+    
+        if (!response.ok) {
+            throw new Error(`Upload failed with status ${response.status}`);
+        }
+    
+        const reader = response.body.getReader();
+        console.log('reader', reader)
+        const contentLength = +response.headers.get('Content-Length');
+    
+        let uploadedBytes = 0;
+        let chunk;
+    
+        while (!(chunk = await reader.read()).done) {
+            uploadedBytes += chunk.value.byteLength;
+            const progress = (uploadedBytes / contentLength) * 100;
+            onProgress(progress);
+        }
+    
+        return 'Upload successful';
     }
+    
 
     constructor(){};
 
@@ -104,6 +122,9 @@ class LocalUpload{
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj)
+        const onProgress = (progress) => {
+            console.log(`Upload progress: ${progress}%`);
+        };
         const payload = {
             file_name: fileObj.name,
             file_type: await fileType,
@@ -125,7 +146,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         try{
-            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null);
+            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null, onProgress);
             return uploadResult;
         }catch(err){
             return ({error: "failed to upload to bucket"});
