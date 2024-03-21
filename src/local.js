@@ -3,7 +3,7 @@ const hashWasm = require('hash-wasm');
 const mime = require('mime-types');
 const formData = require('form-data');
 const fileSaver = require('file-saver');
-const axios = require('axios')
+const axios = require('axios');
 
 const createReadStream = fs.createReadStream;
 const createSHA256 = hashWasm.createSHA256;
