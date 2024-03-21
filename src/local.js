@@ -3,6 +3,7 @@ const hashWasm = require('hash-wasm');
 const mime = require('mime-types');
 const formData = require('form-data');
 const fileSaver = require('file-saver');
+const axios = require('axios')
 
 const createReadStream = fs.createReadStream;
 const createSHA256 = hashWasm.createSHA256;
@@ -82,17 +83,39 @@ class LocalUpload{
             form.append(field, value);
         });
         fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        const resp = await fetch(url, {
-            method: 'POST',
+        // const resp = await fetch(url, {
+        //     method: 'POST',
+        //     headers: {
+        //         'x-amz-checksum-sha256': hash,
+        //         'x-amz-checksum-algorithm': 'SHA256'
+        //     },
+        //     body: form
+        // }).then((response)=>{
+        //     if (response.status === 204) return 'Upload successfull';
+        //     else return ({error:`Upload failed with status ${response.status}`});
+        // });
+
+        const response = await axios.post(url, form, {
             headers: {
-                'x-amz-checksum-sha256': hash,
-                'x-amz-checksum-algorithm': 'SHA256'
+              'Content-Type': 'multipart/form-data',
+              'x-amz-checksum-sha256': hash,
+              'x-amz-checksum-algorithm': 'SHA256',
             },
-            body: form
-        }).then((response)=>{
-            if (response.status === 204) return 'Upload successfull';
-            else return ({error:`Upload failed with status ${response.status}`});
-        });
+            onUploadProgress: (progressEvent) => {
+              const progressPercentage = Math.round(
+                (progressEvent.loaded / progressEvent.total) * 100
+              );
+              console.log('progress', progressPercentage);
+            },
+          });
+        
+          console.log('response', response)
+          if (response.status === 204) {
+            console.log('File uploaded successfully');
+          } else {
+            console.log('Failed to upload file');
+          }
+
         return resp;
     }
 
