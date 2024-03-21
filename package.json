@@ -7,8 +7,7 @@
     "src"
   ],
   "scripts": {
-    "sit-test": "node ./test/sitTesting.js",
-    "test": "jest --coverage"
+    "sit-test": "node ./test/sitTesting.js"
   },
   "repository": {
     "type": "git",
