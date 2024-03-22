@@ -75,23 +75,44 @@ class LocalUpload{
         else return fileType;
     }
 
-    async signedPost(url, fields, fileObj, hash, fPath) {
-        const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
-        const totalSize = fPath ? fs.statSync(fPath).size : fileObj.size;
+    async signedPost(url, fields, fileObj, hash, fPath, onProgress) {
+        const formData = new FormData();
+        
+        // Append fields to FormData
+        for (const [field, value] of Object.entries(fields)) {
+            formData.append(field, value);
+        }
     
-        // Function to upload a chunk of data
-        function uploadChunk(start, end) {
-            return new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.upload.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                        const percentage = Math.round((event.loaded / event.total) * 100);
-                        console.log(`Upload Progress: ${percentage}%`);
-                    }
-                };
+        // Append file to FormData
+        if (fPath) {
+            formData.append('file', createReadStream(fPath));
+        } else {
+            formData.append('file', fileObj);
+        }
+
+        try {
+            // Create XMLHttpRequest object
+            const xhr = new XMLHttpRequest();
+    
+            // Configure progress tracking
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percentage = Math.round((event.loaded / event.total) * 100);
+                    console.log(`Upload Progress: ${percentage}%`);
+                    onProgress(percentage)
+                }
+            };
+    
+            // Send the request
+            xhr.open('POST', url);
+            xhr.setRequestHeader('x-amz-checksum-sha256', hash);
+            xhr.setRequestHeader('x-amz-checksum-algorithm', 'SHA256');
+            
+            // Wrap XMLHttpRequest in a promise
+            const response = await new Promise((resolve, reject) => {
                 xhr.onload = () => {
                     if (xhr.status === 204) {
-                        resolve();
+                        resolve('Upload successful');
                     } else {
                         reject({ error: `Upload failed with status ${xhr.status}` });
                     }
@@ -99,35 +120,21 @@ class LocalUpload{
                 xhr.onerror = () => {
                     reject({ error: 'Upload failed due to network error' });
                 };
-                const chunk = fPath ? fs.createReadStream(fPath, { start, end }) : fileObj.slice(start, end);
-                const formData = new FormData();
-                Object.entries(fields).forEach(([field, value]) => {
-                    formData.append(field, value);
-                });
-                formData.append('file', chunk);
-                xhr.open('POST', url);
-                xhr.setRequestHeader('x-amz-checksum-sha256', hash);
-                xhr.setRequestHeader('x-amz-checksum-algorithm', 'SHA256');
                 xhr.send(formData);
             });
-        }
     
-        // Upload chunks sequentially
-        let start = 0;
-        while (start < totalSize) {
-            const end = Math.min(start + CHUNK_SIZE, totalSize);
-            await uploadChunk(start, end);
-            start = end;
+            return response;
+        } catch (error) {
+            console.error('Error during upload:', error);
+            throw { error: 'Upload failed due to an error' };
         }
-    
-        return 'Upload successful';
     }
     
     
 
     constructor(){};
 
-    async uploadFile(params){
+    async uploadFile(params, onProgress){
         let uploadUrl
         const { fileObj, apiEndpoint, authToken, submissionId, endpointParams, fPath } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
@@ -157,7 +164,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         try{
-            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null);
+            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null, onProgress);
             return uploadResult;
         }catch(err){
             return ({error: "failed to upload to bucket"});
