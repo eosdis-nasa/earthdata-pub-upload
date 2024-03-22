@@ -75,26 +75,66 @@ class LocalUpload{
         else return fileType;
     }
 
-    async signedPost (url, fields, fileObj, hash, fPath){
-        
+    async signedPost(url, fields, fileObj, hash, fPath) {
         const form = new FormData();
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
-        fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        const resp = await fetch(url, {
+        fPath ? form.append('file', createReadStream(fPath)) : form.append('file', fileObj);
+    
+        // Calculate total size of the file
+        const totalSize = fPath ? fs.statSync(fPath).size : fileObj.size;
+        let uploadedSize = 0;
+    
+        // Create a custom ReadableStream to track progress
+        const readableStream = new ReadableStream({
+            start(controller) {
+                const reader = form.getReader();
+                function read() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            controller.close();
+                            return;
+                        }
+                        controller.enqueue(value);
+                        // Update progress
+                        uploadedSize += value.byteLength;
+                        const percentage = Math.round((uploadedSize / totalSize) * 100);
+                        console.log(`Upload Progress: ${percentage}%`);
+                        // Continue reading
+                        read();
+                    }).catch(error => {
+                        console.error('Stream reading error:', error);
+                        controller.error(error);
+                    });
+                }
+                read();
+            }
+        });
+    
+        // Create Request object with custom ReadableStream as body
+        const request = new Request(url, {
             method: 'POST',
             headers: {
                 'x-amz-checksum-sha256': hash,
                 'x-amz-checksum-algorithm': 'SHA256'
             },
-            body: form
-        }).then((response)=>{
-            if (response.status === 204) return 'Upload successfull';
-            else return ({error:`Upload failed with status ${response.status}`});
+            body: readableStream
         });
-        return resp;
+    
+        try {
+            const response = await fetch(request);
+            if (response.status === 204) {
+                return 'Upload successful';
+            } else {
+                return { error: `Upload failed with status ${response.status}` };
+            }
+        } catch (error) {
+            console.error('Upload failed:', error);
+            return { error: 'Upload failed due to network error' };
+        }
     }
+    
 
     constructor(){};
 
