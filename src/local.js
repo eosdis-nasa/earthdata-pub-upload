@@ -76,45 +76,53 @@ class LocalUpload{
     }
 
     async signedPost(url, fields, fileObj, hash, fPath) {
-        const form = new FormData();
-        Object.entries(fields).forEach(([field, value]) => {
-            form.append(field, value);
-        });
-        fPath ? form.append('file', createReadStream(fPath)) : form.append('file', fileObj);
+        const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+        const totalSize = fPath ? fs.statSync(fPath).size : fileObj.size;
     
-        // Create XMLHttpRequest object
-        const xhr = new XMLHttpRequest();
+        // Function to upload a chunk of data
+        function uploadChunk(start, end) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const percentage = Math.round((event.loaded / event.total) * 100);
+                        console.log(`Upload Progress: ${percentage}%`);
+                    }
+                };
+                xhr.onload = () => {
+                    if (xhr.status === 204) {
+                        resolve();
+                    } else {
+                        reject({ error: `Upload failed with status ${xhr.status}` });
+                    }
+                };
+                xhr.onerror = () => {
+                    reject({ error: 'Upload failed due to network error' });
+                };
+                const chunk = fPath ? fs.createReadStream(fPath, { start, end }) : fileObj.slice(start, end);
+                const formData = new FormData();
+                Object.entries(fields).forEach(([field, value]) => {
+                    formData.append(field, value);
+                });
+                formData.append('file', chunk);
+                xhr.open('POST', url);
+                xhr.setRequestHeader('x-amz-checksum-sha256', hash);
+                xhr.setRequestHeader('x-amz-checksum-algorithm', 'SHA256');
+                xhr.send(formData);
+            });
+        }
     
-        // Track progress
-        xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-                const percentage = Math.round((event.loaded / event.total) * 100);
-                console.log(`Upload Progress: ${percentage}%`);
-            }
-        };
+        // Upload chunks sequentially
+        let start = 0;
+        while (start < totalSize) {
+            const end = Math.min(start + CHUNK_SIZE, totalSize);
+            await uploadChunk(start, end);
+            start = end;
+        }
     
-        // Create promise to handle response
-        const promise = new Promise((resolve, reject) => {
-            xhr.onload = () => {
-                if (xhr.status === 204) {
-                    resolve('Upload successful');
-                } else {
-                    reject({ error: `Upload failed with status ${xhr.status}` });
-                }
-            };
-            xhr.onerror = () => {
-                reject({ error: 'Upload failed due to network error' });
-            };
-        });
-    
-        // Open and send the request
-        xhr.open('POST', url);
-        xhr.setRequestHeader('x-amz-checksum-sha256', hash);
-        xhr.setRequestHeader('x-amz-checksum-algorithm', 'SHA256');
-        xhr.send(form);
-    
-        return promise;
+        return 'Upload successful';
     }
+    
     
 
     constructor(){};
