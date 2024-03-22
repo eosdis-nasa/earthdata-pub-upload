@@ -82,57 +82,38 @@ class LocalUpload{
         });
         fPath ? form.append('file', createReadStream(fPath)) : form.append('file', fileObj);
     
-        // Calculate total size of the file
-        const totalSize = fPath ? fs.statSync(fPath).size : fileObj.size;
-        let uploadedSize = 0;
+        // Create XMLHttpRequest object
+        const xhr = new XMLHttpRequest();
     
-        // Create a custom ReadableStream to track progress
-        const readableStream = new ReadableStream({
-            start(controller) {
-                const reader = form.getReader();
-                function read() {
-                    reader.read().then(({ done, value }) => {
-                        if (done) {
-                            controller.close();
-                            return;
-                        }
-                        controller.enqueue(value);
-                        // Update progress
-                        uploadedSize += value.byteLength;
-                        const percentage = Math.round((uploadedSize / totalSize) * 100);
-                        console.log(`Upload Progress: ${percentage}%`);
-                        // Continue reading
-                        read();
-                    }).catch(error => {
-                        console.error('Stream reading error:', error);
-                        controller.error(error);
-                    });
+        // Track progress
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentage = Math.round((event.loaded / event.total) * 100);
+                console.log(`Upload Progress: ${percentage}%`);
+            }
+        };
+    
+        // Create promise to handle response
+        const promise = new Promise((resolve, reject) => {
+            xhr.onload = () => {
+                if (xhr.status === 204) {
+                    resolve('Upload successful');
+                } else {
+                    reject({ error: `Upload failed with status ${xhr.status}` });
                 }
-                read();
-            }
+            };
+            xhr.onerror = () => {
+                reject({ error: 'Upload failed due to network error' });
+            };
         });
     
-        // Create Request object with custom ReadableStream as body
-        const request = new Request(url, {
-            method: 'POST',
-            headers: {
-                'x-amz-checksum-sha256': hash,
-                'x-amz-checksum-algorithm': 'SHA256'
-            },
-            body: readableStream
-        });
+        // Open and send the request
+        xhr.open('POST', url);
+        xhr.setRequestHeader('x-amz-checksum-sha256', hash);
+        xhr.setRequestHeader('x-amz-checksum-algorithm', 'SHA256');
+        xhr.send(form);
     
-        try {
-            const response = await fetch(request);
-            if (response.status === 204) {
-                return 'Upload successful';
-            } else {
-                return { error: `Upload failed with status ${response.status}` };
-            }
-        } catch (error) {
-            console.error('Upload failed:', error);
-            return { error: 'Upload failed due to network error' };
-        }
+        return promise;
     }
     
 
@@ -151,6 +132,9 @@ class LocalUpload{
             ...(submissionId && {submission_id: submissionId}),
             ...endpointParams
         };
+
+        console.log('Deepak');
+        
         try {
             uploadUrl = await fetch(apiEndpoint, {
                 method: 'POST',
