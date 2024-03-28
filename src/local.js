@@ -99,7 +99,7 @@ class LocalUpload{
                 if (event.lengthComputable) {
                     const percentage = Math.round((event.loaded / event.total) * 100);
                     console.log(`Upload Progress: ${percentage}%`);
-                    onProgress(percentage)
+                    onProgress(percentage, fileObj)
                 }
             };
     
