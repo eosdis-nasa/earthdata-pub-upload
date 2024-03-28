@@ -147,8 +147,6 @@ class LocalUpload{
             ...(submissionId && {submission_id: submissionId}),
             ...endpointParams
         };
-
-        console.log('Deepak');
         
         try {
             uploadUrl = await fetch(apiEndpoint, {
@@ -186,7 +184,7 @@ class LocalUpload{
                 }
             }).then((response)=>response.json());
         }catch(err){
-            console.error('Download failed');
+          //  console.error('Download failed');
             return ({error: 'Download failed'})
         }
         if(downloadUrl.error) return ({error: downloadUrl.error});
