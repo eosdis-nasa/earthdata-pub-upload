@@ -1,10 +1,8 @@
-const fs = require('fs');
 const hashWasm = require('hash-wasm');
 const mime = require('mime-types');
 const formData = require('form-data');
 const fileSaver = require('file-saver');
 
-const createReadStream = fs.createReadStream;
 const createSHA256 = hashWasm.createSHA256;
 const saveAs = fileSaver.saveAs;
 const FormData = formData;
@@ -75,13 +73,16 @@ class LocalUpload{
         else return fileType;
     }
 
-    async signedPost (url, fields, fileObj, hash, fPath){
+    // Ignoring coverage due to an inability to meningfully mock fetch
+    // and retain the ability to test the form fuctionality
+    /* istanbul ignore next */
+    async signedPost (url, fields, fileObj, hash){
         
         const form = new FormData();
         Object.entries(fields).forEach(([field, value]) => {
             form.append(field, value);
         });
-        fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
+        form.append('file', fileObj);
         const resp = await fetch(url, {
             method: 'POST',
             headers: {
@@ -100,7 +101,7 @@ class LocalUpload{
 
     async uploadFile(params){
         let uploadUrl
-        const { fileObj, apiEndpoint, authToken, submissionId, endpointParams, fPath } = params;
+        const { fileObj, apiEndpoint, authToken, submissionId, endpointParams } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj)
@@ -125,7 +126,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         try{
-            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null);
+            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash);
             return uploadResult;
         }catch(err){
             return ({error: "failed to upload to bucket"});

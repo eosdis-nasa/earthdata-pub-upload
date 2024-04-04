@@ -12,6 +12,7 @@ describe('LocalUpload', () => {
 
         global.fetch = jest.fn();
         global.fetch.mockImplementationOnce((endpoint, payload) =>{
+            console.log(payload)
             const msgPayload = JSON.parse(payload.body);
             expect(msgPayload.checksum_value).toEqual('d41d8cd98f00b204e9800998ecf8427e');
             return Promise.resolve({
@@ -28,9 +29,6 @@ describe('LocalUpload', () => {
                 })
             })
         })
-        global.fetch.mockImplementationOnce((endpoint, payload) =>{
-            return Promise.resolve({status: 204})
-        })
         global.FileReader = jest.fn().mockImplementation(() => {
             return {
                 readAsArrayBuffer: jest.fn(),
@@ -41,6 +39,9 @@ describe('LocalUpload', () => {
         });
         const mockGenerateHash = jest.spyOn(LocalUpload.prototype, 'generateHash');
         mockGenerateHash.mockResolvedValueOnce('d41d8cd98f00b204e9800998ecf8427e');
+
+        const mockSignedPost = jest.spyOn(LocalUpload.prototype, 'signedPost');
+        mockSignedPost.mockResolvedValueOnce('Upload successfull');
 
         const uploadResp = await new Promise((resolve, reject) => {
             const fStream = new fs.createReadStream(filePath, {highWaterMark: 32});
@@ -56,7 +57,7 @@ describe('LocalUpload', () => {
                 const fSize  = fs.promises.stat(filePath).then((stat)=>{return stat.size});
                 const fileObj = new File(data, filePath.split('/').pop(), {type: 'text/plain', size: fSize})
                 const upload = new LocalUpload();
-                resp = await upload.uploadFile({fileObj, api_endpoint:"https://fake/upload/url", authToken, fPath:filePath})
+                resp = await upload.uploadFile({fileObj, api_endpoint:"https://fake/upload/url", authToken})
                 console.log(resp);  
                 resolve(resp);   
             })
