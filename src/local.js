@@ -90,7 +90,7 @@ class LocalUpload{
             formData.append('file', fileObj);
         }
 
-        try {
+        //try {
             // Create XMLHttpRequest object
             const xhr = new XMLHttpRequest();
     
@@ -124,10 +124,10 @@ class LocalUpload{
             });
     
             return response;
-        } catch (error) {
-            console.error('Error during upload:', error);
-            throw { error: 'Upload failed due to an error' };
-        }
+        // } catch (error) {
+        //     console.error('Error during upload:', error);
+        //     throw { error: 'Upload failed due to an error' };
+        // }
     }
     
     
