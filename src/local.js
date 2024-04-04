@@ -98,7 +98,6 @@ class LocalUpload{
             xhr.upload.onprogress = (event) => {
                 if (event.lengthComputable) {
                     const percentage = Math.round((event.loaded / event.total) * 100);
-                    console.log(`Upload Progress: ${percentage}%`);
                     onProgress(percentage, fileObj)
                 }
             };
