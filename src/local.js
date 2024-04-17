@@ -73,33 +73,65 @@ class LocalUpload{
         else return fileType;
     }
 
-    // Ignoring coverage due to an inability to meningfully mock fetch
-    // and retain the ability to test the form fuctionality
-    /* istanbul ignore next */
-    async signedPost (url, fields, fileObj, hash){
+    async signedPost(url, fields, fileObj, hash, fPath, onProgress) {
+        const formData = new FormData();
         
-        const form = new FormData();
-        Object.entries(fields).forEach(([field, value]) => {
-            form.append(field, value);
-        });
-        form.append('file', fileObj);
-        const resp = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'x-amz-checksum-sha256': hash,
-                'x-amz-checksum-algorithm': 'SHA256'
-            },
-            body: form
-        }).then((response)=>{
-            if (response.status === 204) return 'Upload successfull';
-            else return ({error:`Upload failed with status ${response.status}`});
-        });
-        return resp;
+        // Append fields to FormData
+        for (const [field, value] of Object.entries(fields)) {
+            formData.append(field, value);
+        }
+    
+        // Append file to FormData
+        if (fPath) {
+            formData.append('file', createReadStream(fPath));
+        } else {
+            formData.append('file', fileObj);
+        }
+
+        //try {
+            // Create XMLHttpRequest object
+            const xhr = new XMLHttpRequest();
+    
+            // Configure progress tracking
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percentage = Math.round((event.loaded / event.total) * 100);
+                    onProgress(percentage, fileObj)
+                }
+            };
+    
+            // Send the request
+            xhr.open('POST', url);
+            xhr.setRequestHeader('x-amz-checksum-sha256', hash);
+            xhr.setRequestHeader('x-amz-checksum-algorithm', 'SHA256');
+            
+            // Wrap XMLHttpRequest in a promise
+            const response = await new Promise((resolve, reject) => {
+                xhr.onload = () => {
+                    if (xhr.status === 204) {
+                        resolve('Upload successful');
+                    } else {
+                        reject({ error: `Upload failed with status ${xhr.status}` });
+                    }
+                };
+                xhr.onerror = () => {
+                    reject({ error: 'Upload failed due to network error' });
+                };
+                xhr.send(formData);
+            });
+    
+            return response;
+        // } catch (error) {
+        //     console.error('Error during upload:', error);
+        //     throw { error: 'Upload failed due to an error' };
+        // }
     }
+    
+    
 
     constructor(){};
 
-    async uploadFile(params){
+    async uploadFile(params, onProgress){
         let uploadUrl
         const { fileObj, apiEndpoint, authToken, submissionId, endpointParams } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
@@ -112,6 +144,7 @@ class LocalUpload{
             ...(submissionId && {submission_id: submissionId}),
             ...endpointParams
         };
+        
         try {
             uploadUrl = await fetch(apiEndpoint, {
                 method: 'POST',
@@ -126,7 +159,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         try{
-            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash);
+            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null, onProgress);
             return uploadResult;
         }catch(err){
             return ({error: "failed to upload to bucket"});
@@ -148,7 +181,7 @@ class LocalUpload{
                 }
             }).then((response)=>response.json());
         }catch(err){
-            console.error('Download failed');
+          //  console.error('Download failed');
             return ({error: 'Download failed'})
         }
         if(downloadUrl.error) return ({error: downloadUrl.error});
