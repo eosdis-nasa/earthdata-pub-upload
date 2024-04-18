@@ -73,7 +73,7 @@ class LocalUpload{
         else return fileType;
     }
 
-    async signedPost(url, fields, fileObj, hash, fPath, onProgress) {
+    async signedPost(url, fields, fileObj, hash, onProgress) {
         const formData = new FormData();
         
         // Append fields to FormData
@@ -82,11 +82,7 @@ class LocalUpload{
         }
     
         // Append file to FormData
-        if (fPath) {
-            formData.append('file', createReadStream(fPath));
-        } else {
-            formData.append('file', fileObj);
-        }
+        formData.append('file', fileObj);
 
         //try {
             // Create XMLHttpRequest object
@@ -159,7 +155,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         try{
-            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null, onProgress);
+            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, onProgress);
             return uploadResult;
         }catch(err){
             return ({error: "failed to upload to bucket"});

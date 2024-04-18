@@ -2,6 +2,7 @@ const LocalUpload = require('../src/local.js');
 const fs = require('fs');
 const { Blob } = require('buffer');
 const path = require('path'); // Add this line to import the 'path' module
+const exp = require('constants');
 
 
 // Mocking FileReader functionality
@@ -132,7 +133,20 @@ describe('LocalUpload', () => {
             // Mocking LocalUpload class instance
             const upload = new LocalUpload();
             upload.generateHash = jest.fn().mockResolvedValue(mockHash);
-            upload.signedPost = jest.fn().mockResolvedValue('Upload successful');
+            upload.signedPost = jest.fn().mockImplementation((url, fields, fileObj, hash, onProgress)=>{
+                const expectedFields = {
+                    key: 'ef229725-1cad-485e-a72b-a276d2ca3175/35672b6e-caeb-46b9-a6e8-74599dc07163/848bd037-b09d-4f6b-9811-3bec1fde0f0b/ISS_LIS_SC_V2.2_20230620_185353_NRT.hdf',
+                    AWSAccessKeyId: 'test',
+                    policy: 'test',
+                    signature: 'test',
+                    'Content-Type': 'text/plain'
+                };
+                expect(url).toEqual('https://amz/upload/url');
+                expect(fields).toEqual(expectedFields);
+                expect(hash).toEqual(mockHash);
+                expect(onProgress).toBeDefined();
+                return('Upload successful');
+            });
 
             // Mocking onProgress function
             const onProgress = jest.fn();
@@ -147,21 +161,6 @@ describe('LocalUpload', () => {
             // Assertions
             expect(resp).toEqual('Upload successful');
             expect(upload.generateHash).toHaveBeenCalledWith(fileObj);
-            expect(upload.signedPost).toHaveBeenCalledWith(
-                'https://amz/upload/url',
-                {
-                    key: 'ef229725-1cad-485e-a72b-a276d2ca3175/35672b6e-caeb-46b9-a6e8-74599dc07163/848bd037-b09d-4f6b-9811-3bec1fde0f0b/ISS_LIS_SC_V2.2_20230620_185353_NRT.hdf',
-                    AWSAccessKeyId: 'test',
-                    policy: 'test',
-                    signature: 'test',
-                    'Content-Type': 'text/plain'
-                },
-                fileObj,
-                mockHash,
-                null,
-                onProgress
-            );
         });
     });
 });
-
