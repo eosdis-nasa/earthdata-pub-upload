@@ -1,10 +1,8 @@
-const fs = require('fs');
 const hashWasm = require('hash-wasm');
 const mime = require('mime-types');
 const formData = require('form-data');
 const fileSaver = require('file-saver');
 
-const createReadStream = fs.createReadStream;
 const createSHA256 = hashWasm.createSHA256;
 const saveAs = fileSaver.saveAs;
 const FormData = formData;
@@ -75,32 +73,63 @@ class LocalUpload{
         else return fileType;
     }
 
-    async signedPost (url, fields, fileObj, hash, fPath){
+    async signedPost(url, fields, fileObj, hash, onProgress) {
+        const formData = new FormData();
         
-        const form = new FormData();
-        Object.entries(fields).forEach(([field, value]) => {
-            form.append(field, value);
-        });
-        fPath? form.append('file', createReadStream(fPath)): form.append('file', fileObj);
-        const resp = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'x-amz-checksum-sha256': hash,
-                'x-amz-checksum-algorithm': 'SHA256'
-            },
-            body: form
-        }).then((response)=>{
-            if (response.status === 204) return 'Upload successfull';
-            else return ({error:`Upload failed with status ${response.status}`});
-        });
-        return resp;
+        // Append fields to FormData
+        for (const [field, value] of Object.entries(fields)) {
+            formData.append(field, value);
+        }
+    
+        // Append file to FormData
+        formData.append('file', fileObj);
+
+        //try {
+            // Create XMLHttpRequest object
+            const xhr = new XMLHttpRequest();
+    
+            // Configure progress tracking
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percentage = Math.round((event.loaded / event.total) * 100);
+                    onProgress(percentage, fileObj)
+                }
+            };
+    
+            // Send the request
+            xhr.open('POST', url);
+            xhr.setRequestHeader('x-amz-checksum-sha256', hash);
+            xhr.setRequestHeader('x-amz-checksum-algorithm', 'SHA256');
+            
+            // Wrap XMLHttpRequest in a promise
+            const response = await new Promise((resolve, reject) => {
+                xhr.onload = () => {
+                    if (xhr.status === 204) {
+                        resolve('Upload successful');
+                    } else {
+                        reject({ error: `Upload failed with status ${xhr.status}` });
+                    }
+                };
+                xhr.onerror = () => {
+                    reject({ error: 'Upload failed due to network error' });
+                };
+                xhr.send(formData);
+            });
+    
+            return response;
+        // } catch (error) {
+        //     console.error('Error during upload:', error);
+        //     throw { error: 'Upload failed due to an error' };
+        // }
     }
+    
+    
 
     constructor(){};
 
-    async uploadFile(params){
+    async uploadFile(params, onProgress){
         let uploadUrl
-        const { fileObj, apiEndpoint, authToken, submissionId, endpointParams, fPath } = params;
+        const { fileObj, apiEndpoint, authToken, submissionId, endpointParams } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
         const fileType = this.validateFileType(fileObj)
@@ -111,6 +140,7 @@ class LocalUpload{
             ...(submissionId && {submission_id: submissionId}),
             ...endpointParams
         };
+        
         try {
             uploadUrl = await fetch(apiEndpoint, {
                 method: 'POST',
@@ -125,7 +155,7 @@ class LocalUpload{
             return ({error: "Failed to get upload URL"});
         }
         try{
-            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, fPath? fPath: null);
+            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, onProgress);
             return uploadResult;
         }catch(err){
             return ({error: "failed to upload to bucket"});
@@ -147,7 +177,7 @@ class LocalUpload{
                 }
             }).then((response)=>response.json());
         }catch(err){
-            console.error('Download failed');
+          //  console.error('Download failed');
             return ({error: 'Download failed'})
         }
         if(downloadUrl.error) return ({error: downloadUrl.error});
