@@ -1,9 +1,6 @@
 const LocalUpload = require('../src/local.js');
 const fs = require('fs');
 const { Blob } = require('buffer');
-const path = require('path'); // Add this line to import the 'path' module
-const exp = require('constants');
-
 
 // Mocking FileReader functionality
 global.FileReader = class {
