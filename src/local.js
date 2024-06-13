@@ -84,43 +84,38 @@ class LocalUpload{
         // Append file to FormData
         formData.append('file', fileObj);
 
-        //try {
-            // Create XMLHttpRequest object
-            const xhr = new XMLHttpRequest();
-    
-            // Configure progress tracking
-            xhr.upload.onprogress = (event) => {
-                if (event.lengthComputable) {
-                    const percentage = Math.round((event.loaded / event.total) * 100);
-                    onProgress(percentage, fileObj)
+        // Create XMLHttpRequest object
+        const xhr = new XMLHttpRequest();
+
+        // Configure progress tracking
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentage = Math.round((event.loaded / event.total) * 100);
+                onProgress(percentage, fileObj)
+            }
+        };
+
+        // Send the request
+        xhr.open('POST', url);
+        xhr.setRequestHeader('x-amz-checksum-sha256', hash);
+        xhr.setRequestHeader('x-amz-checksum-algorithm', 'SHA256');
+        
+        // Wrap XMLHttpRequest in a promise
+        const response = await new Promise((resolve, reject) => {
+            xhr.onload = () => {
+                if (xhr.status === 204) {
+                    resolve('Upload successful');
+                } else {
+                    reject({ error: `Upload failed with status ${xhr.status}` });
                 }
             };
-    
-            // Send the request
-            xhr.open('POST', url);
-            xhr.setRequestHeader('x-amz-checksum-sha256', hash);
-            xhr.setRequestHeader('x-amz-checksum-algorithm', 'SHA256');
-            
-            // Wrap XMLHttpRequest in a promise
-            const response = await new Promise((resolve, reject) => {
-                xhr.onload = () => {
-                    if (xhr.status === 204) {
-                        resolve('Upload successful');
-                    } else {
-                        reject({ error: `Upload failed with status ${xhr.status}` });
-                    }
-                };
-                xhr.onerror = () => {
-                    reject({ error: 'Upload failed due to network error' });
-                };
-                xhr.send(formData);
-            });
-    
-            return response;
-        // } catch (error) {
-        //     console.error('Error during upload:', error);
-        //     throw { error: 'Upload failed due to an error' };
-        // }
+            xhr.onerror = () => {
+                reject({ error: 'Upload failed due to network error' });
+            };
+            xhr.send(formData);
+        });
+
+        return response;
     }
     
     
