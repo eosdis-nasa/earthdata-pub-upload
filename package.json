@@ -1,7 +1,7 @@
 {
-  "name": "edpub-data-upload-utility",
+  "name": "@edpub/upload-utility",
   "version": "1.0.0",
-  "description": "utility for uploading data to s3 while authenticating through cognito using presigned urls",
+  "description": "Utility for uploading data to s3 while authenticating through cognito using presigned urls",
   "main": "src/local.js",
   "files": [
     "src"
@@ -24,5 +24,10 @@
   },
   "devDependencies": {
     "jest": "^29.7.0"
+  },
+  "keywords": ["upload", "edpub", "earthdata", "nasa"],
+  "homepage": "https://pub.earthdata.nasa.gov/",
+  "bugs": {
+    "url": "https://github.com/eosdis-nasa/earthdata-pub-upload/issues"
   }
 }
