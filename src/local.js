@@ -7,7 +7,7 @@ const createSHA256 = hashWasm.createSHA256;
 const saveAs = fileSaver.saveAs;
 const FormData = formData;
 
-// Ignoring for coverage due to an inability to meningfully mock
+// Ignoring for coverage due to an inability to meaningfully mock
 // File and FileReader objects in the test environment
 /* istanbul ignore next */
 async function unit8ToBase64(unit8Array) {
@@ -30,7 +30,7 @@ class LocalUpload{
     hasher = null;
 
     
-    // Ignoring for coverage due to an inability to meningfully mock
+    // Ignoring for coverage due to an inability to meaningfully mock
     // File and FileReader objects in the test environment
    /* istanbul ignore next */
     hashChunk(chunk){
@@ -43,7 +43,7 @@ class LocalUpload{
             this.fileReader.readAsArrayBuffer(chunk);
         });
     }
-    // Ignoring for coverage due to an inability to meningfully mock
+    // Ignoring for coverage due to an inability to meaningfully mock
     //File and FileReader objects in the test environment
     /* istanbul ignore next */
     async generateHash(fileObj){
@@ -157,7 +157,7 @@ class LocalUpload{
         }
     };
 
-    // Ignoring coverage due to an inability to meningfully mock fetch
+    // Ignoring coverage due to an inability to meaningfully mock fetch
     // and retain the ability to test the download functionality
     /* istanbul ignore next */
     async downloadFile(key, apiEndpoint, authToken){
@@ -172,7 +172,6 @@ class LocalUpload{
                 }
             }).then((response)=>response.json());
         }catch(err){
-          //  console.error('Download failed');
             return ({error: 'Download failed'})
         }
         if(downloadUrl.error) return ({error: downloadUrl.error});
@@ -185,7 +184,7 @@ class LocalUpload{
             console.error(err);
             return ({error: 'Download failed'})
         };
-        return ('Download successfull');
+        return ('Download successful');
     };
 };
 
