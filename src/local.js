@@ -162,7 +162,7 @@ class LocalUpload{
     /* istanbul ignore next */
     async downloadFile(key, apiEndpoint, authToken){
         let downloadUrl;
-        const apiUrl = `${apiEndpoint}?key=${key}`;
+        const apiUrl = `${apiEndpoint}?key=${encodeURIComponent(key)}`;
         try{
             downloadUrl = await fetch(apiUrl, {
                 method: 'GET',
