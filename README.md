@@ -1,13 +1,14 @@
-# Earthdata Pub Upload
+# Earthdata Pub Upload <!-- omit from toc -->
 
 This is the upload module code repository for Earthdata Pub.
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)
-- [Installing](#installing)
-- [Building and running locally](#building-and-running-locally)
-- [Testing](#testing)
+- [Table of Contents](#table-of-contents)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Testing](#testing)
 
 ### Prerequisites
 
@@ -17,46 +18,68 @@ The following are required for following the packaging and deploying steps:
 - [Terraform](https://github.com/hashicorp/terraform) AWS components are
   provisioned using Terraform v1.0.0.
 - [Node.js](https://nodejs.org/en/download/) AWS Lambda functions and layers are
-  implemented in Node.js 18.14.1. The Node Package Manager is also required but included
+  implemented in Node.js 22.14.0. The Node Package Manager is also required but included
   with a standard Node.js installation.
 - [Docker](https://www.docker.com/) Docker is used to create the local test
   environment including the following services Postgresql, PgAdmin, GoAws for
   mocking SNS and SQS, Node OASTools for serving the API.
 
-### Installing
+### Installation
 
-The first step is to clone the repo!
-
-```bash
-git clone https://github.com/eosdis-nasa/earthdata-pub-upload.git
-cd upload
-npm install
+```
+npm install @edpub/upload-utility
 ```
 
-### Building and running locally
+### Usage
 
-To build and run a local instance execute:
+The below example shows how the EDPub Upload Utility can be used to upload a file to S3.
 
-```bash
-cd ../earthdata-pub-dashboard
-npm i
-cd ../earthdata-pub-upload
+```javascript
+import localUpload from '@edpub/upload-utility';
+
+const uploadUtil = new localUpload();
+
+const payload = {
+  fileObj: file,
+  authToken: 'Bearer <my_auth_token_value>',
+  apiEndpoint: 'https://my-site.com/download',
+  submissionId: '8e475eb1-1558-4115-ad52-a09962964873',
+  endpointParams: {
+    file_category: 'file category'
+  }
+};
+const updateProgress = (progress, fileObj) => {};
+uploadUtil.uploadFile(payload, updateProgress);
+
 ```
 
-This will install the upload module in your local dashboard stack.
+The `updateProgress` method is used for tracking progress of an upload. Below is an example of what that method might look where the application is tracking the file's upload progress for something like displaying a progress bar in a React application.
 
-To launch your local EDPub stack execute:
-
-```bash
-cd ../earthdata-pub-forms
-npm run start-dev
-cd ../earthdata-pub-upload
+```javascript
+const updateProgress = (progress, fileObj) => {
+  setUploadProgress((previousState) => ({
+    ...previousState,
+    [fileObj.name]: progress,
+  }));
+};
 ```
 
-Due to limitations when attempting to imitate cloud resources the upload module will run with errors locally.
+The EDPub Upload Utility can also be used to download a file from S3.
+
+```javascript
+import localUpload from '@edpub/upload-utility';
+
+const uploadUtil = new localUpload();
+
+const s3Prefix = 'prefix/location/test.txt';
+const downloadAPIEndpoint = 'https://my-site.com/download';
+const authenticationToken = 'Bearer <my_auth_token_value>';
+
+download.downloadFile(s3Prefix, downloadAPIEndpoint, authenticationToken);
+```
 
 
-## Testing
+### Testing
 
 [Jest](https://jestjs.io/) is used for unit testing Lambda functions and Lambda
 layers. Jest configuration is located in `jest.config.js`.
