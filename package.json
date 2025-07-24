@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/eosdis-nasa/earthdata-pub-upload.git"
+    "url": "git+https://github.com/eosdis-nasa/earthdata-pub-upload.git"
   },
   "author": "EDPub Development Team",
   "license": "BSD 3-Clause License",
@@ -25,7 +25,12 @@
   "devDependencies": {
     "jest": "^29.7.0"
   },
-  "keywords": ["upload", "edpub", "earthdata", "nasa"],
+  "keywords": [
+    "upload",
+    "edpub",
+    "earthdata",
+    "nasa"
+  ],
   "homepage": "https://pub.earthdata.nasa.gov/",
   "bugs": {
     "url": "https://github.com/eosdis-nasa/earthdata-pub-upload/issues"
