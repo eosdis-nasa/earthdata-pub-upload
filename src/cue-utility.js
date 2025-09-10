@@ -74,18 +74,14 @@ class CueFileUtility{
         else return fileType;
     }
 
-    async signedPost(url, fields, fileObj, hash, onProgress) {
+    async signedPost(url, fileObj, onProgress) {
         const formData = new FormData();
-        
-        // Append fields to FormData
-        for (const [field, value] of Object.entries(fields)) {
-            formData.append(field, value);
-        }
     
         // Append file to FormData
         formData.append('file', fileObj);
 
         // Create XMLHttpRequest object
+        // This is used over fetch because it allow progress tracking
         const xhr = new XMLHttpRequest();
 
         // Configure progress tracking
@@ -98,8 +94,6 @@ class CueFileUtility{
 
         // Send the request
         xhr.open('POST', url);
-        // xhr.setRequestHeader('x-amz-checksum-sha256', hash);
-        // xhr.setRequestHeader('x-amz-checksum-algorithm', 'SHA256');
         
         // Wrap XMLHttpRequest in a promise
         const response = await new Promise((resolve, reject) => {
@@ -124,7 +118,7 @@ class CueFileUtility{
     constructor(){};
 
     async uploadFile(params, onProgress){
-        let uploadUrl
+        let presignedUrlResponse;
         const { fileObj, apiEndpoint, authToken, submissionId, endpointParams } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
         const hash  = this.generateHash(fileObj);
@@ -139,7 +133,7 @@ class CueFileUtility{
         };
         
         try {
-            uploadUrl = await fetch(apiEndpoint, {
+            presignedUrlResponse = await fetch(apiEndpoint, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${authToken}`,
@@ -147,29 +141,17 @@ class CueFileUtility{
                 },
                 body: JSON.stringify(payload)
             }).then((response)=>response.json());
-            if(uploadUrl.error) return ({error: uploadUrl.error});
+            if(presignedUrlResponse.error) return ({error: presignedUrlResponse.error});
         } catch (err) {
             return ({error: "Failed to get upload URL"});
         }
         try{
-            const uploadResult = await this.signedPost(uploadUrl.url, uploadUrl.fields, fileObj, await hash, onProgress);
-            // return uploadResult;
+            const uploadResult = await this.signedPost(presignedUrlResponse.presigned_url, fileObj, onProgress);
         }catch(err){
             return ({error: "failed to upload to bucket"});
         }
         // TODO - Add logic for CUE complete single upload endpoint
-        try{
-            await fetch(apiEndpoint, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            })
-        }catch(err){
-            return({error: "failed to confirm upload"});
-        }
+        // Need to include presignedUrlResponse.file_id in payload
     };
 
     // Ignoring coverage due to an inability to meaningfully mock fetch
