@@ -123,6 +123,7 @@ class LocalUpload{
     constructor(){};
 
     async uploadFile(params, onProgress){
+        console.log('Testing npm link for SIT');
         let uploadUrl
         const { fileObj, apiEndpoint, authToken, submissionId, endpointParams } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
@@ -146,6 +147,7 @@ class LocalUpload{
                 body: JSON.stringify(payload)
             }).then((response)=>response.json());
             if(uploadUrl.error) return ({error: uploadUrl.error});
+            console.log(uploadUrl);
         } catch (err) {
             return ({error: "Failed to get upload URL"});
         }
