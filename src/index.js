@@ -1,7 +1,7 @@
 import CueFileUtility from "./cue-utility";
 import LocalUpload from "./local";
 
-module.exports = {
+export {
     CueFileUtility,
     LocalUpload
-}
+};
