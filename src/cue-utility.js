@@ -118,6 +118,7 @@ class CueFileUtility{
     constructor(){};
 
     async uploadFile(params, onProgress){
+        console.log('in CueFileUtility');
         let presignedUrlResponse;
         const { fileObj, apiEndpoint, authToken, submissionId, endpointParams } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}

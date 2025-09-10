@@ -123,6 +123,7 @@ class LocalUpload{
     constructor(){};
 
     async uploadFile(params, onProgress){
+        console.log('in LocalUpload');
         let uploadUrl
         const { fileObj, apiEndpoint, authToken, submissionId, endpointParams } = params;
         if (fileObj.size > this.maxFileSize){return ('File too large')}
