@@ -1,5 +1,5 @@
 const hashWasm = require('hash-wasm');
-const mime = require('mime-types');
+const mime = require('mime/lite');
 const formData = require('form-data');
 const fileSaver = require('file-saver');
 
@@ -67,7 +67,7 @@ class LocalUpload{
     };
 
     async validateFileType(fileObj){
-        const fileType = mime.lookup(fileObj.name.split('.').pop());
+        const fileType = mime.getType(fileObj.name.split('.').pop());
         if (fileType === 'application/x-msdownload'||
             fileType === 'application/octet-stream') return '';
         else return fileType;
