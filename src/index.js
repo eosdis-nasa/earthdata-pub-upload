@@ -1,5 +1,5 @@
-import CueFileUtility from "./cue-utility";
-import LocalUpload from "./local";
+const CueFileUtility = require("./cue-utility");
+const LocalUpload = require("./local");
 
 export {
     CueFileUtility,
