@@ -74,7 +74,7 @@ class CueFileUtility{
         else return fileType;
     }
 
-    async signedPost(url, fileObj, onProgress) {
+    async signedPost(url, fileObj, contentType, fileSize, onProgress) {
         const formData = new FormData();
     
         // Append file to FormData
@@ -93,8 +93,10 @@ class CueFileUtility{
         };
 
         // Send the request
-        xhr.open('POST', url);
-        
+        xhr.open('PUT', url);
+        xhr.setRequestHeader('Content-Type', contentType);
+        xhr.setRequestHeader('Content-Length', fileSize);
+
         // Wrap XMLHttpRequest in a promise
         const response = await new Promise((resolve, reject) => {
             xhr.onload = () => {
@@ -147,7 +149,7 @@ class CueFileUtility{
             return ({error: "Failed to get upload URL"});
         }
         try{
-            const uploadResult = await this.signedPost(presignedUrlResponse.presigned_url, fileObj, onProgress);
+            const uploadResult = await this.signedPost(presignedUrlResponse.presigned_url, fileObj, fileType, fileObj.size, onProgress);
         }catch(err){
             return ({error: "failed to upload to bucket"});
         }
