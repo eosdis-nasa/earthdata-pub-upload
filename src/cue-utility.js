@@ -94,7 +94,7 @@ class CueFileUtility{
 
         // Send the request
         xhr.open('PUT', url);
-        // xhr.setRequestHeader('Content-Type', contentType);
+        xhr.setRequestHeader('Content-Type', contentType);
         xhr.setRequestHeader('Content-Length', fileSize);
 
         // Wrap XMLHttpRequest in a promise
@@ -110,6 +110,8 @@ class CueFileUtility{
                 reject({ error: 'Upload failed due to network error' });
             };
             // xhr.send(formData);
+            console.log(fileObj);
+            console.log(typeof fileObj);
             xhr.send(fileObj);
         });
 
