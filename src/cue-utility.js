@@ -94,7 +94,7 @@ class CueFileUtility{
         // Wrap XMLHttpRequest in a promise
         const response = await new Promise((resolve, reject) => {
             xhr.onload = () => {
-                if (xhr.status === 204) {
+                if (xhr.status === 204 || xhr.status == 200) {
                     resolve('Upload successful');
                 } else {
                     reject({ error: `Upload failed with status ${xhr.status}` });
