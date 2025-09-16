@@ -74,7 +74,6 @@ class CueFileUtility{
     }
 
     async signedPost(url, fileObj, contentType, fileSize, onProgress) {
-        console.log({url, fileObj, contentType, fileSize});
 
         // Create XMLHttpRequest object
         // This is used over fetch because it allow progress tracking
@@ -111,7 +110,7 @@ class CueFileUtility{
         return response;
     }
 
-    async singleFileUpload({fileObj, apiEndpoint, authToken, submissionId, endpointParams}) {
+    async singleFileUpload({fileObj, apiEndpoint, authToken, submissionId, endpointParams}, onProgress) {
 
         const hash  = await this.generateHash(fileObj);
         const fileType = await this.validateFileType(fileObj);
@@ -227,8 +226,8 @@ class CueFileUtility{
         console.log('in uploadFile');
 
         if (params.fileObj.size > this.maxSingleFileSize) return {error: "File above max single file size of 5GB"}
-        if (params.fileObj.size < this.multiPartUploadThreshold) return this.singleFileUpload(params);
-        return this.multiPartUpload(params);
+        if (params.fileObj.size < this.multiPartUploadThreshold) return this.singleFileUpload(params, onProgress);
+        return this.multiPartUpload(params, onProgress);
     };
 
     // Ignoring coverage due to an inability to meaningfully mock fetch
