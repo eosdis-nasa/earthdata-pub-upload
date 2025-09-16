@@ -1,12 +1,10 @@
 
 const hashWasm = require('hash-wasm');
 const mime = require('mime/lite');
-const formData = require('form-data');
 const fileSaver = require('file-saver');
 
 const createSHA256 = hashWasm.createSHA256;
 const saveAs = fileSaver.saveAs;
-const FormData = formData;
 
 // Ignoring for coverage due to an inability to meaningfully mock
 // File and FileReader objects in the test environment
@@ -24,8 +22,9 @@ async function unit8ToBase64(unit8Array) {
 
 class CueFileUtility{
 
-    chunkSize  = 64 * 1024 * 1024; // 64MB
-    maxFileSize = 5 * 1024 * 1024 * 1024; // 5GB
+    chunkSize  = 8 * 1024 * 1024; // 8MB
+    multiPartUploadThreshold = 100 * 1024 * 1024; // 100MB based on https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html
+    maxSingleFileSize = 5 * 1024 * 1024 * 1024; // 5GB
     /* istanbul ignore next */
     fileReader = new FileReader();
     hasher = null;
@@ -75,10 +74,6 @@ class CueFileUtility{
     }
 
     async signedPost(url, fileObj, contentType, fileSize, onProgress) {
-        const formData = new FormData();
-    
-        // Append file to FormData
-        formData.append('file', fileObj);
 
         // Create XMLHttpRequest object
         // This is used over fetch because it allow progress tracking
@@ -109,35 +104,20 @@ class CueFileUtility{
             xhr.onerror = () => {
                 reject({ error: 'Upload failed due to network error' });
             };
-            // xhr.send(formData);
-            console.log(fileObj);
-            console.log(typeof fileObj);
             xhr.send(fileObj);
         });
 
         return response;
     }
-    
-    
 
-    constructor(){};
+    async singleFileUpload({fileObj, apiEndpoint, authToken, submissionId, endpointParams}) {
 
-    async uploadFile(params, onProgress){
-        console.log('in CueFileUtility');
+        const hash  = await this.generateHash(fileObj);
+        const fileType = await this.validateFileType(fileObj);
+
         let presignedUrlResponse;
-        const { fileObj, apiEndpoint, authToken, submissionId, endpointParams } = params;
-        if (fileObj.size > this.maxFileSize){return ('File too large')}
-        const hash  = this.generateHash(fileObj);
-        const fileType = this.validateFileType(fileObj)
-        const payload = {
-            file_name: fileObj.name,
-            file_type: await fileType,
-            checksum_value: await hash,
-            file_size_bytes: fileObj.size,
-            ...(submissionId && {submission_id: submissionId}),
-            ...endpointParams
-        };
-        
+        let etag;
+
         try {
             presignedUrlResponse = await fetch(apiEndpoint, {
                 method: 'POST',
@@ -145,19 +125,108 @@ class CueFileUtility{
                     Authorization: `Bearer ${authToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    file_name: fileObj.name,
+                    file_type: fileType,
+                    checksum_value: hash,
+                    file_size_bytes: fileObj.size,
+                    ...(submissionId && {submission_id: submissionId}),
+                    ...endpointParams
+                })
             }).then((response)=>response.json());
             if(presignedUrlResponse.error) return ({error: presignedUrlResponse.error});
         } catch (err) {
             return ({error: "Failed to get upload URL"});
         }
         try{
-            const uploadResult = await this.signedPost(presignedUrlResponse.presigned_url, fileObj, await fileType, fileObj.size, onProgress);
+            const uploadResult = await this.signedPost(presignedUrlResponse.presigned_url, fileObj, fileType, fileObj.size, onProgress);
+            etag = uploadResult.headers.get('ETag');
         }catch(err){
-            return ({error: "failed to upload to bucket"});
+            return ({error: "Failed to upload to bucket"});
         }
-        // TODO - Add logic for CUE complete single upload endpoint
-        // Need to include presignedUrlResponse.file_id in payload
+        try{
+            const completeResponse = await fetch(apiEndpoint, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${authToken}`
+                },
+                body: JSON.stringify({
+                    file_id: presignedUrlResponse.file_id,
+                    file_name: fileObj.name,
+                    file_size_bytes: fileObj.size,
+                    checksum_value: hash,
+                    collection_path: presignedUrlResponse.collection_path,
+                    content_type: fileType,
+                    etags: [ { PartNumber: 1, Etag: etag}]
+                })
+            });
+            console.log(await completeResponse.json());
+        }catch(err){
+            return ({error: "Unable to confirm upload to CUE"})
+        }
+    }
+
+    async multiPartUpload({fileObj, apiEndpoint, authToken, submissionId, endpointParams}) {
+
+        // const fileType = await this.validateFileType(fileObj);
+
+        // // start multipart upload api query
+        // let upload_id;
+        // try {
+        //     const response = await fetch(apiEndpoint, {
+        //         method: 'POST',
+        //         headers: {
+        //             Authorization: `Bearer ${authToken}`
+        //         },
+        //         body: JSON.stringify({
+        //             file_name: fileObj.name,
+        //             content_type: fileType,
+        //             ...(submissionId && {submission_id: submissionId}),
+        //             ...endpointParams
+        //         })
+        //     });
+        //     upload_id = response?.upload_id;
+        // } catch (err) {
+        //     console.error(err);
+        //     return ({error: "Failed to start multipart upload."})
+        // }
+        // iterate over parts:
+            // get presigned url for part
+            // upload each part
+        console.log('in multipart upload');
+        let offset = 0;
+        while (offset < fileObj.size) {
+            const chunk = fileObj.slice(offset, offset + this.chunkSize);
+            console.log(chunk);
+
+            const chunkHash = await this.hashChunk(chunk);
+
+            console.log('after promise');
+
+            offset += this.chunkSize;
+            console.log('offset', offset);
+            console.log('file size', fileObj.size);
+        }
+        // const chunkNumber = Math.floor(fileObj.size / this.chunkSize);
+        // for (let i = 0; i <= chunkNumber; i++){
+        //     const chunk = fileObj.slice(
+        //         i * this.chunkSize,
+        //         Math.min(this.chunkSize * (i + 1), fileObj.size)
+        //     )
+        //     await this.hashChunk(chunk);
+        // }
+        // complete multipart upload api query
+
+    }
+
+    constructor(){};
+
+    async uploadFile(params, onProgress){
+        console.log('in uploadFile');
+
+        if (params.fileObj.size > maxSingleFileSize) return {error: "File above max single file size of 5GB"}
+        if (params.fileObj.size < this.multiPartUploadThreshold) return this.singleFileUpload(params);
+        return this.multiPartUpload(params);
     };
 
     // Ignoring coverage due to an inability to meaningfully mock fetch
