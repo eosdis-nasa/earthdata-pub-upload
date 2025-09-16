@@ -224,7 +224,7 @@ class CueFileUtility{
     async uploadFile(params, onProgress){
         console.log('in uploadFile');
 
-        if (params.fileObj.size > maxSingleFileSize) return {error: "File above max single file size of 5GB"}
+        if (params.fileObj.size > this.maxSingleFileSize) return {error: "File above max single file size of 5GB"}
         if (params.fileObj.size < this.multiPartUploadThreshold) return this.singleFileUpload(params);
         return this.multiPartUpload(params);
     };
