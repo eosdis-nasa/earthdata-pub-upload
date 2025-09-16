@@ -140,10 +140,10 @@ class CueFileUtility{
             return ({error: "Failed to get upload URL"});
         }
         try{
-            console.log({presignedUrl: presignedUrlResponse.presigned_url, fileObj, fileType, fileSize: fileObj.size});
             const uploadResult = await this.signedPost(presignedUrlResponse.presigned_url, fileObj, fileType, fileObj.size, onProgress);
             etag = uploadResult.headers.get('ETag');
         }catch(err){
+            console.log(err);
             return ({error: "Failed to upload to bucket"});
         }
         try{
