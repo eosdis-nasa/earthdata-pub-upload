@@ -90,7 +90,6 @@ class CueFileUtility{
         // Send the request
         xhr.open('PUT', url);
         xhr.setRequestHeader('Content-Type', contentType);
-        xhr.setRequestHeader('Content-Length', fileSize);
 
         // Wrap XMLHttpRequest in a promise
         const response = await new Promise((resolve, reject) => {
