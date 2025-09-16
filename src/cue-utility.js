@@ -74,6 +74,7 @@ class CueFileUtility{
     }
 
     async signedPost(url, fileObj, contentType, fileSize, onProgress) {
+        console.log({url, fileObj, contentType, fileSize});
 
         // Create XMLHttpRequest object
         // This is used over fetch because it allow progress tracking
