@@ -138,31 +138,34 @@ class CueFileUtility{
         }
         try{
             const uploadResult = await this.signedPost(presignedUrlResponse.presigned_url, fileObj, fileType, fileObj.size, onProgress);
+            console.log('uploadResult', uploadResult);
             etag = uploadResult.getResponseHeader('ETag');
+            console.log('etag', etag);
+            console.log('headers', uploadResult.getAllResponseHeaders());
         }catch(err){
             console.log(err);
             return ({error: "Failed to upload to bucket"});
         }
-        try{
-            const completeResponse = await fetch(apiEndpoint, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${authToken}`
-                },
-                body: JSON.stringify({
-                    file_id: presignedUrlResponse.file_id,
-                    file_name: fileObj.name,
-                    file_size_bytes: fileObj.size,
-                    checksum_value: hash,
-                    collection_path: presignedUrlResponse.collection_path,
-                    content_type: fileType,
-                    etags: [ { PartNumber: 1, Etag: etag}]
-                })
-            });
-            console.log(await completeResponse.json());
-        }catch(err){
-            return ({error: "Unable to confirm upload to CUE"})
-        }
+        // try{
+        //     const completeResponse = await fetch(`${(new URL(apiEndpoint)).origin}/api/data/upload/complete`, {
+        //         method: 'POST',
+        //         headers: {
+        //             Authorization: `Bearer ${authToken}`
+        //         },
+        //         body: JSON.stringify({
+        //             file_id: presignedUrlResponse.file_id,
+        //             file_name: fileObj.name,
+        //             file_size_bytes: fileObj.size,
+        //             checksum_value: hash,
+        //             collection_path: presignedUrlResponse.collection_path,
+        //             content_type: fileType,
+        //             etags: [ { PartNumber: 1, Etag: etag}]
+        //         })
+        //     });
+        //     console.log(await completeResponse.json());
+        // }catch(err){
+        //     return ({error: "Unable to confirm upload to CUE"})
+        // }
     }
 
     async multiPartUpload({fileObj, apiEndpoint, authToken, submissionId, endpointParams}) {
