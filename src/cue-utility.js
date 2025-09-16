@@ -95,7 +95,7 @@ class CueFileUtility{
         const response = await new Promise((resolve, reject) => {
             xhr.onload = () => {
                 if (xhr.status === 204 || xhr.status == 200) {
-                    resolve('Upload successful');
+                    resolve(xhr);
                 } else {
                     reject({ error: `Upload failed with status ${xhr.status}` });
                 }
@@ -105,7 +105,6 @@ class CueFileUtility{
             };
             xhr.send(fileObj);
         });
-
         return response;
     }
 
@@ -139,7 +138,7 @@ class CueFileUtility{
         }
         try{
             const uploadResult = await this.signedPost(presignedUrlResponse.presigned_url, fileObj, fileType, fileObj.size, onProgress);
-            etag = uploadResult.headers.get('ETag');
+            etag = uploadResult.getResponseHeader('ETag');
         }catch(err){
             console.log(err);
             return ({error: "Failed to upload to bucket"});
