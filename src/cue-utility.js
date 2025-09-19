@@ -221,11 +221,10 @@ class CueFileUtility{
     constructor(){};
 
     async uploadFile(params, onProgress){
-        console.log('in uploadFile');
 
         if (params.fileObj.size > this.maxSingleFileSize) return {error: "File above max single file size of 5GB"}
         if (params.fileObj.size < this.multiPartUploadThreshold) return this.singleFileUpload(params, onProgress);
-        return this.multiPartUpload(params, onProgress);
+        return {error: "Multipart upload not implemented"}
     };
 
     // Ignoring coverage due to an inability to meaningfully mock fetch
