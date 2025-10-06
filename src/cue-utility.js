@@ -154,7 +154,7 @@ class CueFileUtility{
                     file_name: fileObj.name,
                     file_size_bytes: fileObj.size,
                     checksum_value: hash,
-                    collection_path: presignedUrlResponse.collection_path,
+                    // collection_path: presignedUrlResponse.collection_path,
                     content_type: fileType,
                     etags: [ { PartNumber: 1, Etag: etag}]
                 })
