@@ -1,8 +1,8 @@
 {
   "name": "@edpub/upload-utility",
-  "version": "1.1.1",
-  "description": "Utility for uploading data to s3 while authenticating through cognito using presigned urls",
-  "main": "src/local.js",
+  "version": "2.0.0",
+  "description": "Utility for uploading data to s3 while authenticating through CUE or Cognito using presigned urls",
+  "main": "src/index.js",
   "files": [
     "src"
   ],
@@ -20,7 +20,7 @@
     "file-saver": "^2.0.5",
     "form-data": "^4.0.4",
     "hash-wasm": "^4.9.0",
-    "mime-types": "^2.1.35"
+    "mime": "^3.0.0"
   },
   "devDependencies": {
     "jest": "^29.7.0"
