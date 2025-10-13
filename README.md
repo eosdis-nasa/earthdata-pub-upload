@@ -35,9 +35,9 @@ npm install @edpub/upload-utility
 The below example shows how the EDPub Upload Utility can be used to upload a file to S3.
 
 ```javascript
-import localUpload from '@edpub/upload-utility';
+import { CueFileUtility } from '@edpub/upload-utility';
 
-const uploadUtil = new localUpload();
+const uploadUtil = new CueFileUtility();
 
 const payload = {
   fileObj: file,
@@ -67,9 +67,9 @@ const updateProgress = (progress, fileObj) => {
 The EDPub Upload Utility can also be used to download a file from S3.
 
 ```javascript
-import localUpload from '@edpub/upload-utility';
+import { CueFileUtility } from '@edpub/upload-utility';
 
-const uploadUtil = new localUpload();
+const uploadUtil = new CueFileUtility();
 
 const s3Prefix = 'prefix/location/test.txt';
 const downloadAPIEndpoint = 'https://my-site.com/download';
