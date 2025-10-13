@@ -140,7 +140,7 @@ class CueFileUtility{
             const uploadResult = await this.signedPost(presignedUrlResponse.presigned_url, fileObj, fileType, fileObj.size, onProgress);
             etag = uploadResult.getResponseHeader('ETag');
         }catch(err){
-            console.log(err);
+            console.error(err);
             return ({error: "Failed to upload to bucket"});
         }
         try{
@@ -159,7 +159,7 @@ class CueFileUtility{
                     etags: [ { PartNumber: 1, Etag: etag}]
                 })
             });
-            console.log(await completeResponse.json());
+            await completeResponse.json();
         }catch(err){
             return ({error: "Unable to confirm upload to CUE"})
         }
@@ -192,19 +192,13 @@ class CueFileUtility{
         // iterate over parts:
             // get presigned url for part
             // upload each part
-        console.log('in multipart upload');
         let offset = 0;
         while (offset < fileObj.size) {
             const chunk = fileObj.slice(offset, offset + this.chunkSize);
-            console.log(chunk);
 
             const chunkHash = await this.hashChunk(chunk);
 
-            console.log('after promise');
-
             offset += this.chunkSize;
-            console.log('offset', offset);
-            console.log('file size', fileObj.size);
         }
         // const chunkNumber = Math.floor(fileObj.size / this.chunkSize);
         // for (let i = 0; i <= chunkNumber; i++){
