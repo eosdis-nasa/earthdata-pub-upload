@@ -160,7 +160,6 @@ class CueFileUtility{
                 })
             });
             const completeJson = await completeResponse.json();
-            console.log('completeJson', completeJson)
             return {
                 success: true,
                 completeJson
