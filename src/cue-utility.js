@@ -159,7 +159,12 @@ class CueFileUtility{
                     etags: [ { PartNumber: 1, Etag: etag}]
                 })
             });
-            await completeResponse.json();
+            const completeJson = await completeResponse.json();
+            console.log('completeJson', completeJson)
+            return {
+                success: true,
+                completeJson
+            };
         }catch(err){
             return ({error: "Unable to confirm upload to CUE"})
         }
