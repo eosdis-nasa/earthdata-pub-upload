@@ -214,8 +214,22 @@ class CueFileUtility{
         for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
             const start = (partNumber - 1) * this.chunkSize;
             const end = Math.min(start + this.chunkSize, totalSize);
-            const chunk = fileObj.slice(start, end);
+            const blobSlice = fileObj.slice(start, end);
+
+            const chunk = new File(
+            [blobSlice],
+            fileObj.name,
+            {
+                type: fileObj.type,
+                lastModified: fileObj.lastModified
+            }
+            );
+
+            // copy additional metadata
+            chunk.partNumber = partNumber;
+            chunk.webkitRelativePath = fileObj.webkitRelativePath;
             const chunkSize = chunk.size;
+
 
             //  GET PART URL
             let presignedResp;
@@ -248,6 +262,7 @@ class CueFileUtility{
             let uploadResult;
 
             try {
+                
                 uploadResult = await this.signedPost(
                     presignedUrl,
                     chunk,
