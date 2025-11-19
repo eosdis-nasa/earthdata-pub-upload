@@ -220,7 +220,7 @@ class CueFileUtility{
             //  GET PART URL
             let presignedResp;
             try {
-                presignedResp = await fetch(`${apiEndpoint}/get-part-url`, {
+                presignedResp = await fetch(`${apiEndpoint}/api/data/upload/multipart/getPartUrl`, {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${authToken}`,
