@@ -300,7 +300,7 @@ class CueFileUtility{
 
         let completeResp;
         try {
-            completeResp = await fetch(`$${(new URL(apiEndpoint)).origin}/api/data/upload/complete`, {
+            completeResp = await fetch(`${(new URL(apiEndpoint)).origin}/api/data/upload/complete`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${authToken}`,
