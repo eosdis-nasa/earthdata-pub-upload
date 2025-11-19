@@ -230,6 +230,7 @@ class CueFileUtility{
 
             // copy additional metadata
             chunk.partNumber = partNumber;
+            chunk.lastModifiedDate = fileObj.lastModifiedDate;
             const chunkSize = chunk.size;
 
 
@@ -333,7 +334,7 @@ class CueFileUtility{
     async uploadFile(params, onProgress){
 
         if (params.fileObj.size > this.maxSingleFileSize) return {error: "File above max single file size of 5GB"}
-        return this.singleFileUpload(params, onProgress);
+        return this.multiPartUpload(params, onProgress);
         // TODO - Include multipart upload logic
         // if (params.fileObj.size < this.multiPartUploadThreshold) return this.singleFileUpload(params, onProgress);
         // return {error: "Multipart upload not implemented"}
