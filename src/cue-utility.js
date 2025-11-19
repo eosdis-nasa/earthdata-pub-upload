@@ -290,7 +290,7 @@ class CueFileUtility{
 
             uploadedParts.push({
                 PartNumber: partNumber,
-                ETag: etag
+                ETag: etag.replace(/"/g, "")
             });
         }
 
