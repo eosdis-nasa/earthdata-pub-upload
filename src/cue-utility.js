@@ -89,7 +89,7 @@ class CueFileUtility{
 
         // Send the request
         xhr.open('PUT', url);
-        xhr.setRequestHeader('Content-Type', contentType);
+        //xhr.setRequestHeader('Content-Type', contentType);
 
         // Wrap XMLHttpRequest in a promise
         const response = await new Promise((resolve, reject) => {
@@ -218,7 +218,7 @@ class CueFileUtility{
             const start = (partNumber - 1) * this.chunkSize;
             const end = Math.min(start + this.chunkSize, totalSize);
             const blobSlice = fileObj.slice(start, end);
-
+            blobSlice.name = fileObj.name;
             const chunk = new File(
             [blobSlice],
             fileObj.name,
@@ -267,7 +267,7 @@ class CueFileUtility{
                 
                 uploadResult = await this.signedPost(
                     presignedUrl,
-                    chunk,
+                    blobSlice,
                     fileType,
                     chunkSize,
                     (percent) => {
