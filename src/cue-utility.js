@@ -103,8 +103,11 @@ class CueFileUtility{
             xhr.onerror = () => {
                 reject({ error: 'Upload failed due to network error' });
             };
+                    console.log('single fileObj', fileObj);
+
             xhr.send(fileObj);
         });
+        console.log('single post', response);
         return response;
     }
 
@@ -330,7 +333,7 @@ class CueFileUtility{
     async uploadFile(params, onProgress){
 
         if (params.fileObj.size > this.maxSingleFileSize) return {error: "File above max single file size of 5GB"}
-        return this.multiPartUpload(params, onProgress);
+        return this.singleFileUpload(params, onProgress);
         // TODO - Include multipart upload logic
         // if (params.fileObj.size < this.multiPartUploadThreshold) return this.singleFileUpload(params, onProgress);
         // return {error: "Multipart upload not implemented"}
