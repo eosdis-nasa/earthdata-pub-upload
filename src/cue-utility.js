@@ -165,51 +165,149 @@ class CueFileUtility{
         }
     }
 
-    async multiPartUpload({fileObj, apiEndpoint, authToken, submissionId, endpointParams}) {
+    async multiPartUpload({ fileObj, apiEndpoint, authToken, submissionId, endpointParams }, onProgress) {
+        const fileType = await this.validateFileType(fileObj);
 
-        // const fileType = await this.validateFileType(fileObj);
-
-        // // start multipart upload api query
-        // let upload_id;
-        // try {
-        //     const response = await fetch(apiEndpoint, {
-        //         method: 'POST',
-        //         headers: {
-        //             Authorization: `Bearer ${authToken}`
-        //         },
-        //         body: JSON.stringify({
-        //             file_name: fileObj.name,
-        //             content_type: fileType,
-        //             ...(submissionId && {submission_id: submissionId}),
-        //             ...endpointParams
-        //         })
-        //     });
-        //     upload_id = response?.upload_id;
-        // } catch (err) {
-        //     console.error(err);
-        //     return ({error: "Failed to start multipart upload."})
-        // }
-        // iterate over parts:
-            // get presigned url for part
-            // upload each part
-        let offset = 0;
-        while (offset < fileObj.size) {
-            const chunk = fileObj.slice(offset, offset + this.chunkSize);
-
-            const chunkHash = await this.hashChunk(chunk);
-
-            offset += this.chunkSize;
+        // START MULTIPART UPLOAD
+        let startResp;
+        console.log('Upload started');
+        try {
+            startResp = await fetch(`${apiEndpoint}/start`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    collection_name: endpointParams.collection_name,
+                    file_name: fileObj.name,
+                    content_type: fileType,
+                    collection_path: endpointParams.collection_path,
+                    ...(submissionId && { submission_id: submissionId })
+                })
+            }).then(r => r.json());
+        } catch (err) {
+            console.error(err);
+            return { error: "Failed to start multipart upload" };
         }
-        // const chunkNumber = Math.floor(fileObj.size / this.chunkSize);
-        // for (let i = 0; i <= chunkNumber; i++){
-        //     const chunk = fileObj.slice(
-        //         i * this.chunkSize,
-        //         Math.min(this.chunkSize * (i + 1), fileObj.size)
-        //     )
-        //     await this.hashChunk(chunk);
-        // }
-        // complete multipart upload api query
 
+        console.log('startResp', startResp.json());
+        const fileId = startResp.file_id;
+        const uploadId = startResp.upload_id;
+        console.log('uploadId', uploadId);
+
+        if (!fileId || !uploadId) {
+            return { error: "Invalid multipart start response" };
+        }
+
+        // ------------------------------------------------------------
+        // SPLIT FILE INTO PARTS & UPLOAD EACH PART
+        // ------------------------------------------------------------
+        const totalSize = fileObj.size;
+        const totalParts = Math.ceil(totalSize / this.chunkSize);
+        const uploadedParts = [];
+
+        let uploadedBytes = 0; // TRACK BYTES FOR GLOBAL PROGRESS
+        console.log('SPLIT');
+
+        for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+            const start = (partNumber - 1) * this.chunkSize;
+            const end = Math.min(start + this.chunkSize, totalSize);
+            const chunk = fileObj.slice(start, end);
+            const chunkSize = chunk.size;
+
+            //  GET PART URL
+            let presignedResp;
+            try {
+                presignedResp = await fetch(`${apiEndpoint}/get-part-url`, {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        file_id: fileId,
+                        upload_id: uploadId,
+                        part_number: partNumber
+                    })
+                }).then(r => r.json());
+            } catch (err) {
+                console.error(err);
+                return { error: `Failed to get presigned URL for part ${partNumber}` };
+            }
+
+            console.log('presignedResp.presigned_url', presignedResp.presigned_url);
+
+            const presignedUrl = presignedResp.presigned_url;
+            if (!presignedUrl) {
+                return { error: `Missing presigned URL for part ${partNumber}` };
+            }
+
+            //UPLOAD PART WITH GLOBAL PROGRESS
+            let uploadResult;
+
+            try {
+                uploadResult = await this.signedPost(
+                    presignedUrl,
+                    chunk,
+                    fileType,
+                    chunkSize,
+                    (percent) => {
+                        const partBytesUploaded = (percent / 100) * chunkSize;
+                        const totalBytes = uploadedBytes + partBytesUploaded;
+                        const globalPercent = Math.round((totalBytes / totalSize) * 100);
+                        onProgress(globalPercent);
+                    }
+                );
+            } catch (err) {
+                console.error(err);
+                return { error: `Failed to upload part ${partNumber}` };
+            }
+            console.log('chunkSize',chunkSize);
+
+            // Part upload is fully complete → commit bytes
+            uploadedBytes += chunkSize;
+
+            const etag = uploadResult.getResponseHeader("ETag");
+
+            uploadedParts.push({
+                PartNumber: partNumber,
+                ETag: etag
+            });
+        }
+
+        // FINAL CHECKSUM + COMPLETE MULTIPART UPLOAD
+        const finalChecksum = await this.generateHash(fileObj);
+        console.log('finalChecksum',finalChecksum);
+
+        let completeResp;
+        try {
+            completeResp = await fetch(`${apiEndpoint}/complete`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    file_id: fileId,
+                    upload_id: uploadId,
+                    parts: uploadedParts,
+                    file_name: fileObj.name,
+                    collection_name: endpointParams.collection_name,
+                    collection_path: endpointParams.collection_path,
+                    content_type: fileType,
+                    checksum: finalChecksum,
+                    final_file_size: fileObj.size
+                })
+            }).then(r => r.json());
+        } catch (err) {
+            console.error(err);
+            return { error: "Failed to complete multipart upload" };
+        }
+
+        console.log('completeResp',completeResp.json());
+
+        return completeResp.json();
     }
 
     constructor(){};
@@ -217,7 +315,7 @@ class CueFileUtility{
     async uploadFile(params, onProgress){
 
         if (params.fileObj.size > this.maxSingleFileSize) return {error: "File above max single file size of 5GB"}
-        return this.singleFileUpload(params, onProgress);
+        return this.multiPartUpload(params, onProgress);
         // TODO - Include multipart upload logic
         // if (params.fileObj.size < this.multiPartUploadThreshold) return this.singleFileUpload(params, onProgress);
         // return {error: "Multipart upload not implemented"}
