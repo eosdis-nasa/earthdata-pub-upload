@@ -288,14 +288,9 @@ class CueFileUtility{
 
             const etag = uploadResult.getResponseHeader("ETag");
 
-            // Ensure ETag is JSON-safe (wrap in quotes)
-            if (etag.startsWith('"') === false) {
-                etag = `"${etag}"`;
-            }
-
             uploadedParts.push({
                 PartNumber: partNumber,
-                ETag: etag
+                ETag: etag.replace(/"/g, "")
             });
         }
 
