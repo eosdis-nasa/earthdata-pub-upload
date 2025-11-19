@@ -227,7 +227,6 @@ class CueFileUtility{
 
             // copy additional metadata
             chunk.partNumber = partNumber;
-            chunk.webkitRelativePath = fileObj.webkitRelativePath;
             const chunkSize = chunk.size;
 
 
