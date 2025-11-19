@@ -230,7 +230,6 @@ class CueFileUtility{
 
             // copy additional metadata
             chunk.partNumber = partNumber;
-            chunk.lastModifiedDate = fileObj.lastModifiedDate;
             const chunkSize = chunk.size;
 
 
