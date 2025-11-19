@@ -192,7 +192,7 @@ class CueFileUtility{
             return { error: "Failed to start multipart upload" };
         }
 
-        console.log('startResp', startResp.json());
+        console.log('startResp', startResp);
         const fileId = startResp.file_id;
         const uploadId = startResp.upload_id;
         console.log('uploadId', uploadId);
@@ -306,9 +306,9 @@ class CueFileUtility{
             return { error: "Failed to complete multipart upload" };
         }
 
-        console.log('completeResp',completeResp.json());
+        console.log('completeResp',completeResp);
 
-        return completeResp.json();
+        return completeResp;
     }
 
     constructor(){};
