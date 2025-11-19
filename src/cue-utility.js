@@ -173,7 +173,7 @@ class CueFileUtility{
         let startResp;
         console.log('Upload started');
         try {
-            startResp = await fetch(`${(new URL(apiEndpoint)).origin}/api/data/upload/start`, {
+            startResp = await fetch(`${(new URL(apiEndpoint)).origin}/api/data/upload/multipart/start`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${authToken}`,
@@ -316,7 +316,7 @@ class CueFileUtility{
     async uploadFile(params, onProgress){
 
         if (params.fileObj.size > this.maxSingleFileSize) return {error: "File above max single file size of 5GB"}
-        return this.singleFileUpload(params, onProgress);
+        return this.multiPartUpload(params, onProgress);
         // TODO - Include multipart upload logic
         // if (params.fileObj.size < this.multiPartUploadThreshold) return this.singleFileUpload(params, onProgress);
         // return {error: "Multipart upload not implemented"}
