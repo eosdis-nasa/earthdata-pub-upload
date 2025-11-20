@@ -277,7 +277,7 @@ class CueFileUtility{
                         const partBytesUploaded = (percent / 100) * chunkSize;
                         const totalBytes = uploadedBytes + partBytesUploaded;
                         const globalPercent = Math.round((totalBytes / totalSize) * 100);
-                        onProgress(globalPercent);
+                        onProgress(globalPercent, blobSlice);
                     }
                 );
             } catch (err) {
