@@ -176,6 +176,7 @@ class CueFileUtility{
         // START MULTIPART UPLOAD
         let startResp;
         console.log('Upload started');
+        console.log('endpointParams',endpointParams);
         try {
             startResp = await fetch(`${(new URL(apiEndpoint)).origin}/api/data/upload/multipart/start`, {
                 method: 'POST',
@@ -188,7 +189,8 @@ class CueFileUtility{
                     file_name: fileObj.name,
                     content_type: fileType,
                     collection_path: endpointParams.collection_path,
-                    ...(submissionId && { submission_id: submissionId })
+                    ...(submissionId && { submission_id: submissionId }),
+                    ...endpointParams
                 })
             }).then(r => r.json());
         } catch (err) {
