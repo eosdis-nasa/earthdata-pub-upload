@@ -22,7 +22,7 @@ async function unit8ToBase64(unit8Array) {
 
 class CueFileUtility{
 
-    chunkSize  = 8 * 1024 * 1024; // 8MB
+    chunkSize  = 75 * 1024 * 1024; // 75MB
     multiPartUploadThreshold = 100 * 1024 * 1024; // 100MB based on https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html
     maxSingleFileSize = 5 * 1024 * 1024 * 1024; // 5GB
     /* istanbul ignore next */
