@@ -172,6 +172,7 @@ class CueFileUtility{
 
     async multiPartUpload({ fileObj, apiEndpoint, authToken, submissionId, endpointParams }, onProgress) {
         const fileType = await this.validateFileType(fileObj);
+        const hash  = await this.generateHash(fileObj);
 
         // START MULTIPART UPLOAD
         let startResp;
