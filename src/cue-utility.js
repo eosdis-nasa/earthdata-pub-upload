@@ -316,7 +316,7 @@ class CueFileUtility{
                     parts: uploadedParts,
                     file_name: fileObj.name,
                     collection_name: endpointParams.collection_name,
-                    collection_path: endpointParams.collection_path,
+                    collection_path: startResp.collection_path,
                     content_type: fileType,
                     checksum: finalChecksum,
                     final_file_size: fileObj.size
