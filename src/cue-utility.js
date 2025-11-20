@@ -178,24 +178,24 @@ class CueFileUtility{
         console.log('Upload started');
         console.log('endpointParams',endpointParams);
         try {
-            startResp = await fetch(`${(new URL(apiEndpoint)).origin}/api/data/upload/multipart/start`, {
+            startResp = await fetch(apiEndpoint, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${authToken}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    collection_name: endpointParams.collection_name,
                     file_name: fileObj.name,
-                    content_type: fileType,
-                    collection_path: endpointParams.collection_path,
-                    ...(submissionId && { submission_id: submissionId }),
+                    file_type: fileType,
+                    checksum_value: hash,
+                    file_size_bytes: fileObj.size,
+                    ...(submissionId && {submission_id: submissionId}),
                     ...endpointParams
                 })
-            }).then(r => r.json());
+            }).then((response)=>response.json());
+            if(startResp.error) return ({error: startResp.error});
         } catch (err) {
-            console.error(err);
-            return { error: "Failed to start multipart upload" };
+            return ({error: "Failed to get upload URL"});
         }
 
         console.log('startResp', startResp);
