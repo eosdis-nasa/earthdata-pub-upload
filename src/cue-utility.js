@@ -168,150 +168,135 @@ class CueFileUtility{
         const fileType = await this.validateFileType(fileObj);
         const hash  = await this.generateHash(fileObj);
 
-        // START MULTIPART UPLOAD
-        let startResp;
-        try {
-            startResp = await fetch(apiEndpoint, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    file_name: fileObj.name,
-                    file_type: fileType,
-                    checksum_value: hash,
-                    file_size_bytes: fileObj.size,
-                    ...(submissionId && {submission_id: submissionId}),
-                    ...endpointParams
-                })
-            }).then((response)=>response.json());
-            if(startResp.error) return ({error: startResp.error});
-        } catch (err) {
-            return ({error: "Failed to get upload URL"});
+    // STEP 1 — START MULTIPART UPLOAD
+    const startResp = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+        file_name: fileObj.name,
+        file_type: fileType,
+        checksum_value: hash,
+        file_size_bytes: fileObj.size,
+        ...(submissionId && { submission_id: submissionId }),
+        ...endpointParams,
+        }),
+    }).then((r) => r.json());
+
+    if (startResp.error) return { error: startResp.error };
+
+    const fileId = startResp.file_id;
+    const uploadId = startResp.upload_id;
+
+    const totalSize = fileObj.size;
+    const totalParts = Math.ceil(totalSize / this.chunkSize);
+
+    let uploadedBytes = 0;
+    const uploadedParts = [];
+
+    // ============================================================
+    //     STEP 2 — PARALLEL UPLOAD CONFIG
+    // ============================================================
+
+    const MAX_CONCURRENCY = 5;
+    let active = 0;
+    let index = 1;
+
+    const queue = [];
+
+    const runNext = async () => {
+        if (index > totalParts) return;
+
+        const partNumber = index++;
+        active++;
+
+        const start = (partNumber - 1) * this.chunkSize;
+        const end = Math.min(start + this.chunkSize, totalSize);
+        const blobSlice = fileObj.slice(start, end);
+
+        // STEP 2A — GET PRESIGNED URL FOR THIS PART
+        const presignedResp = await fetch(
+        `${new URL(apiEndpoint).origin}/api/data/upload/multipart/getPartUrl`,
+        {
+            method: "POST",
+            headers: {
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+            file_id: fileId,
+            upload_id: uploadId,
+            part_number: partNumber,
+            }),
         }
+        ).then((r) => r.json());
 
-        const fileId = startResp.file_id;
-        const uploadId = startResp.upload_id;
+        const presignedUrl = presignedResp.presigned_url;
 
-        if (!fileId || !uploadId) {
-            return { error: "Invalid multipart start response" };
+        // STEP 2B — UPLOAD PART IN PARALLEL
+        const uploadResult = await this.signedPost(
+        presignedUrl,
+        blobSlice,
+        fileType,
+        blobSlice.size,
+        (percent) => {
+            const partUploaded = (percent / 100) * blobSlice.size;
+            const total = uploadedBytes + partUploaded;
+            const globalPercent = Math.round((total / totalSize) * 100);
+            onProgress(globalPercent, blobSlice);
         }
+        );
 
-        // ------------------------------------------------------------
-        // SPLIT FILE INTO PARTS & UPLOAD EACH PART
-        // ------------------------------------------------------------
-        const totalSize = fileObj.size;
-        const totalParts = Math.ceil(totalSize / this.chunkSize);
-        const uploadedParts = [];
+        uploadedBytes += blobSlice.size;
 
-        let uploadedBytes = 0; // TRACK BYTES FOR GLOBAL PROGRESS
+        const etag = uploadResult.getResponseHeader("ETag").replace(/"/g, "");
+        uploadedParts.push({ PartNumber: partNumber, ETag: etag });
 
-        for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
-            const start = (partNumber - 1) * this.chunkSize;
-            const end = Math.min(start + this.chunkSize, totalSize);
-            const blobSlice = fileObj.slice(start, end);
-            blobSlice.name = fileObj.name;
-            const chunk = new File(
-            [blobSlice],
-            fileObj.name,
-            {
-                type: fileObj.type,
-                lastModified: fileObj.lastModified
-            }
-            );
+        active--;
+        runNext();
+    };
 
-            // copy additional metadata
-            chunk.partNumber = partNumber;
-            const chunkSize = chunk.size;
+    // ============================================================
+    //     STEP 3 — START INITIAL PARALLEL WORKERS
+    // ============================================================
+    for (let i = 0; i < MAX_CONCURRENCY && i < totalParts; i++) {
+        queue.push(runNext());
+    }
 
+    // Wait until all uploads finish
+    await Promise.all(queue);
 
-            //  GET PART URL
-            let presignedResp;
-            try {
-                presignedResp = await fetch(`${(new URL(apiEndpoint)).origin}/api/data/upload/multipart/getPartUrl`, {
-                    method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${authToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        file_id: fileId,
-                        upload_id: uploadId,
-                        part_number: partNumber
-                    })
-                }).then(r => r.json());
-            } catch (err) {
-                console.error(err);
-                return { error: `Failed to get presigned URL for part ${partNumber}` };
-            }
+    // ============================================================
+    //     STEP 4 — COMPLETE MULTIPART UPLOAD
+    // ============================================================
 
-            const presignedUrl = presignedResp.presigned_url;
-            if (!presignedUrl) {
-                return { error: `Missing presigned URL for part ${partNumber}` };
-            }
+    const finalChecksum = await this.generateHash(fileObj);
 
-            //UPLOAD PART WITH GLOBAL PROGRESS
-            let uploadResult;
-
-            try {
-                
-                uploadResult = await this.signedPost(
-                    presignedUrl,
-                    blobSlice,
-                    fileType,
-                    chunkSize,
-                    (percent) => {
-                        const partBytesUploaded = (percent / 100) * chunkSize;
-                        const totalBytes = uploadedBytes + partBytesUploaded;
-                        const globalPercent = Math.round((totalBytes / totalSize) * 100);
-                        onProgress(globalPercent, blobSlice);
-                    }
-                );
-            } catch (err) {
-                console.error(err);
-                return { error: `Failed to upload part ${partNumber}` };
-            }
-            // Part upload is fully complete → commit bytes
-            uploadedBytes += chunkSize;
-
-            const etag = uploadResult.getResponseHeader("ETag");
-
-            uploadedParts.push({
-                PartNumber: partNumber,
-                ETag: etag.replace(/"/g, "")
-            });
+    const completeResp = await fetch(
+        `${new URL(apiEndpoint).origin}/api/data/upload/complete`,
+        {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            file_id: fileId,
+            upload_id: uploadId,
+            parts: uploadedParts,
+            file_name: fileObj.name,
+            collection_name: endpointParams.collection_name,
+            collection_path: startResp.collection_path,
+            content_type: fileType,
+            checksum: finalChecksum,
+            final_file_size: fileObj.size,
+        }),
         }
+    ).then((r) => r.json());
 
-        // FINAL CHECKSUM + COMPLETE MULTIPART UPLOAD
-        const finalChecksum = await this.generateHash(fileObj);
-
-        let completeResp;
-        try {
-            completeResp = await fetch(`${(new URL(apiEndpoint)).origin}/api/data/upload/complete`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    file_id: fileId,
-                    upload_id: uploadId,
-                    parts: uploadedParts,
-                    file_name: fileObj.name,
-                    collection_name: endpointParams.collection_name,
-                    collection_path: startResp.collection_path,
-                    content_type: fileType,
-                    checksum: finalChecksum,
-                    final_file_size: fileObj.size
-                })
-            }).then(r => r.json());
-        } catch (err) {
-            console.error(err);
-            return { error: "Failed to complete multipart upload" };
-        }
-
-        return completeResp;
+    return completeResp;
     }
 
     constructor(){};
