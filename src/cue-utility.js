@@ -294,9 +294,10 @@ class CueFileUtility{
 
             uploadedParts.push({
                 PartNumber: partNumber,
-                ETag: `"\"${etag.replace(/"/g, "")}\""`
+                ETag: etag
             });
         }
+        console.log("STRINGIFIED parts:", JSON.stringify(uploadedParts));
 
         // FINAL CHECKSUM + COMPLETE MULTIPART UPLOAD
         const finalChecksum = await this.generateHash(fileObj);
