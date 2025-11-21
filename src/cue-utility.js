@@ -255,17 +255,16 @@ class CueFileUtility{
                 fileType,
                 blobSlice.size,
                 (percent) => {
-                    const loaded = (percent / 100) * blobSlice.size;
-                    partProgress[partNumber] = loaded;
+                    partProgress[partNumber] = percent * blobSlice.size / 100;
 
-                    const totalUploaded = Object.values(partProgress).reduce(
-                        (sum, v) => sum + v,
-                        0
-                    );
+                    const totalUploaded = Object.values(partProgress).reduce((s, v) => s + v, 0);
 
-                    const globalPercent = Math.round((totalUploaded / totalSize) * 100);
+                    const globalPercent = Math.min(100, Math.round((totalUploaded / totalSize) * 100));
+
+                    // ONLY UPDATE WHEN GLOBAL CHANGES
                     onProgress(globalPercent, blobSlice);
                 }
+
             );
 
             const etag = uploadRes.getResponseHeader("ETag").replace(/"/g, "");
