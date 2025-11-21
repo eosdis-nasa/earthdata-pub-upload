@@ -73,7 +73,7 @@ class CueFileUtility{
         else return fileType;
     }
 
-    async signedPost(url, fileObj, blobSlice, contentType, fileSize, onChunkProgress) {
+    async signedPost(url, blobSlice, contentType, fileSize, onChunkProgress) {
         
         // Create XMLHttpRequest object
         // This is used over fetch because it allow progress tracking
@@ -248,7 +248,6 @@ class CueFileUtility{
             // STEP 2B — UPLOAD
             const uploadRes = await this.signedPost(
                 presignedUrl,
-                fileObj,
                 blobSlice,
                 fileType,
                 blobSlice.size,
@@ -273,7 +272,7 @@ class CueFileUtility{
             uploadedParts.push({ PartNumber: partNumber, ETag: etag });
 
             active--;
-            runNext();
+            await runNext();
         };
 
         // Start initial workers
@@ -284,8 +283,8 @@ class CueFileUtility{
         await Promise.all(uploadQueue);
 
         // STEP 3 — COMPLETE UPLOAD
-        uploadedParts.sort((a, b) => a.PartNumber - b.PartNumber);
         const finalChecksum = await this.generateHash(fileObj);
+        uploadedParts.sort((a, b) => a.PartNumber - b.PartNumber);
 
         const completeResp = await fetch(
             `${new URL(apiEndpoint).origin}/api/data/upload/complete`,
