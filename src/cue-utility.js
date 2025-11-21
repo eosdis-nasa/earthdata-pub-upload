@@ -22,7 +22,7 @@ async function unit8ToBase64(unit8Array) {
 
 class CueFileUtility{
 
-    chunkSize  = 75 * 1024 * 1024; // 75MB
+    chunkSize  = 100 * 1024 * 1024; // 100MB
     multiPartUploadThreshold = 100 * 1024 * 1024; // 100MB based on https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html
     maxSingleFileSize = 5 * 1024 * 1024 * 1024; // 5GB
     /* istanbul ignore next */
@@ -164,140 +164,144 @@ class CueFileUtility{
         }
     }
 
+    // MULTIPART PARALLEL UPLOAD
     async multiPartUpload({ fileObj, apiEndpoint, authToken, submissionId, endpointParams }, onProgress) {
         const fileType = await this.validateFileType(fileObj);
-        const hash  = await this.generateHash(fileObj);
+        const hash = await this.generateHash(fileObj);
 
-    // STEP 1 — START MULTIPART UPLOAD
-    const startResp = await fetch(apiEndpoint, {
-        method: "POST",
-        headers: {
-        Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-        file_name: fileObj.name,
-        file_type: fileType,
-        checksum_value: hash,
-        file_size_bytes: fileObj.size,
-        ...(submissionId && { submission_id: submissionId }),
-        ...endpointParams,
-        }),
-    }).then((r) => r.json());
-
-    if (startResp.error) return { error: startResp.error };
-
-    const fileId = startResp.file_id;
-    const uploadId = startResp.upload_id;
-
-    const totalSize = fileObj.size;
-    const totalParts = Math.ceil(totalSize / this.chunkSize);
-
-    let uploadedBytes = 0;
-    const uploadedParts = [];
-
-    // ============================================================
-    //     STEP 2 — PARALLEL UPLOAD CONFIG
-    // ============================================================
-
-    const MAX_CONCURRENCY = 5;
-    let active = 0;
-    let index = 1;
-
-    const queue = [];
-
-    const runNext = async () => {
-        if (index > totalParts) return;
-
-        const partNumber = index++;
-        active++;
-
-        const start = (partNumber - 1) * this.chunkSize;
-        const end = Math.min(start + this.chunkSize, totalSize);
-        const blobSlice = fileObj.slice(start, end);
-
-        // STEP 2A — GET PRESIGNED URL FOR THIS PART
-        const presignedResp = await fetch(
-        `${new URL(apiEndpoint).origin}/api/data/upload/multipart/getPartUrl`,
-        {
+        // STEP 1 — START
+        const startResp = await fetch(apiEndpoint, {
             method: "POST",
             headers: {
-            Authorization: `Bearer ${authToken}`,
-            "Content-Type": "application/json",
+                Authorization: `Bearer ${authToken}`,
+                "Content-Type": "application/json",
             },
             body: JSON.stringify({
-            file_id: fileId,
-            upload_id: uploadId,
-            part_number: partNumber,
+                file_name: fileObj.name,
+                file_type: fileType,
+                checksum_value: hash,
+                file_size_bytes: fileObj.size,
+                ...(submissionId && { submission_id: submissionId }),
+                ...endpointParams,
             }),
+        }).then((r) => r.json());
+
+        if (startResp.error) return { error: startResp.error };
+
+        const fileId = startResp.file_id;
+        const uploadId = startResp.upload_id;
+
+        const totalSize = fileObj.size;
+        const totalParts = Math.ceil(totalSize / this.chunkSize);
+        const uploadedParts = [];
+        const partProgress = {};
+
+        // Concurrency limiter
+        const MAX_CONCURRENCY = 5;
+        let active = 0;
+        let index = 1;
+
+        const waitForSlot = async () => {
+            while (active >= MAX_CONCURRENCY) {
+                await new Promise((res) => setTimeout(res, 10));
+            }
+        };
+
+        const uploadQueue = [];
+
+        const runNext = async () => {
+            await waitForSlot();
+
+            if (index > totalParts) return;
+
+            const partNumber = index++;
+            active++;
+            partProgress[partNumber] = 0;
+
+            const start = (partNumber - 1) * this.chunkSize;
+            const end = Math.min(start + this.chunkSize, totalSize);
+            const blobSlice = fileObj.slice(start, end);
+
+            // STEP 2A — GET PRESIGNED URL
+            const presigned = await fetch(
+                `${new URL(apiEndpoint).origin}/api/data/upload/multipart/getPartUrl`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${authToken}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        file_id: fileId,
+                        upload_id: uploadId,
+                        part_number: partNumber,
+                    }),
+                }
+            ).then((r) => r.json());
+
+            const presignedUrl = presigned.presigned_url;
+
+            // STEP 2B — UPLOAD
+            const uploadRes = await this.signedPost(
+                presignedUrl,
+                blobSlice,
+                fileType,
+                blobSlice.size,
+                (percent) => {
+                    const loaded = (percent / 100) * blobSlice.size;
+                    partProgress[partNumber] = loaded;
+
+                    const totalUploaded = Object.values(partProgress).reduce(
+                        (sum, v) => sum + v,
+                        0
+                    );
+
+                    const globalPercent = Math.round((totalUploaded / totalSize) * 100);
+                    onProgress(globalPercent, blobSlice);
+                }
+            );
+
+            const etag = uploadRes.getResponseHeader("ETag").replace(/"/g, "");
+            uploadedParts.push({ PartNumber: partNumber, ETag: etag });
+
+            active--;
+            runNext();
+        };
+
+        // Start initial workers
+        for (let i = 0; i < MAX_CONCURRENCY && i < totalParts; i++) {
+            uploadQueue.push(runNext());
         }
+
+        await Promise.all(uploadQueue);
+
+        // STEP 3 — COMPLETE UPLOAD
+        uploadedParts.sort((a, b) => a.PartNumber - b.PartNumber);
+        const finalChecksum = await this.generateHash(fileObj);
+
+        const completeResp = await fetch(
+            `${new URL(apiEndpoint).origin}/api/data/upload/complete`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    file_id: fileId,
+                    upload_id: uploadId,
+                    parts: uploadedParts,
+                    file_name: fileObj.name,
+                    collection_name: endpointParams.collection_name,
+                    collection_path: startResp.collection_path,
+                    content_type: fileType,
+                    checksum: finalChecksum,
+                    final_file_size: fileObj.size,
+                }),
+            }
         ).then((r) => r.json());
 
-        const presignedUrl = presignedResp.presigned_url;
-
-        // STEP 2B — UPLOAD PART IN PARALLEL
-        const uploadResult = await this.signedPost(
-        presignedUrl,
-        blobSlice,
-        fileType,
-        blobSlice.size,
-        (percent) => {
-            const partUploaded = (percent / 100) * blobSlice.size;
-            const total = uploadedBytes + partUploaded;
-            const globalPercent = Math.round((total / totalSize) * 100);
-            onProgress(globalPercent, blobSlice);
-        }
-        );
-
-        uploadedBytes += blobSlice.size;
-
-        const etag = uploadResult.getResponseHeader("ETag").replace(/"/g, "");
-        uploadedParts.push({ PartNumber: partNumber, ETag: etag });
-
-        active--;
-        runNext();
-    };
-
-    // ============================================================
-    //     STEP 3 — START INITIAL PARALLEL WORKERS
-    // ============================================================
-    for (let i = 0; i < MAX_CONCURRENCY && i < totalParts; i++) {
-        queue.push(runNext());
-    }
-
-    // Wait until all uploads finish
-    await Promise.all(queue);
-
-    // ============================================================
-    //     STEP 4 — COMPLETE MULTIPART UPLOAD
-    // ============================================================
-
-    const finalChecksum = await this.generateHash(fileObj);
-    uploadedParts.sort((a, b) => a.PartNumber - b.PartNumber);
-
-    const completeResp = await fetch(
-        `${new URL(apiEndpoint).origin}/api/data/upload/complete`,
-        {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${authToken}`,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            file_id: fileId,
-            upload_id: uploadId,
-            parts: uploadedParts,
-            file_name: fileObj.name,
-            collection_name: endpointParams.collection_name,
-            collection_path: startResp.collection_path,
-            content_type: fileType,
-            checksum: finalChecksum,
-            final_file_size: fileObj.size,
-        }),
-        }
-    ).then((r) => r.json());
-
-    return completeResp;
+        return completeResp;
     }
 
     constructor(){};
