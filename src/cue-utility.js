@@ -73,7 +73,7 @@ class CueFileUtility{
         else return fileType;
     }
 
-    async signedPost(url, blobSlice, contentType, fileSize, onProgress) {
+    async signedPost(url, blobSlice, contentType, fileSize, onChunkProgress) {
 
         // Create XMLHttpRequest object
         // This is used over fetch because it allow progress tracking
@@ -81,19 +81,19 @@ class CueFileUtility{
 
         // Configure progress tracking
         xhr.upload.onprogress = (event) => {
-            let percent;
-
-            if (event.lengthComputable && event.total > 0) {
+            let percent = 0;
+            if (event.lengthComputable) {
                 percent = Math.round((event.loaded / event.total) * 100);
             } else {
-                // fallback if browser does not report total
                 percent = Math.round((event.loaded / blobSlice.size) * 100);
+            }
+
+            if (onChunkProgress) {
+                onChunkProgress(percent);
             }
         };
 
-        // Send the request
         xhr.open('PUT', url);
-        //xhr.setRequestHeader('Content-Type', contentType);
 
         // Wrap XMLHttpRequest in a promise
         const response = await new Promise((resolve, reject) => {
@@ -248,21 +248,25 @@ class CueFileUtility{
             // STEP 2B — UPLOAD
             const uploadRes = await this.signedPost(
                 presignedUrl,
+                fileObj,
                 blobSlice,
                 fileType,
                 blobSlice.size,
                 (percent) => {
+                    // per-chunk progress (percent)
                     partProgress[partNumber] = percent * blobSlice.size / 100;
 
-                    const totalUploaded = Object.values(partProgress).reduce((s, v) => s + v, 0);
+                    const totalUploaded = Object.values(partProgress)
+                        .reduce((s, v) => s + v, 0);
 
-                    const globalPercent = Math.min(100, Math.round((totalUploaded / totalSize) * 100));
-                    console.log("globalPercent %:", globalPercent);
+                    const globalPercent = Math.min(
+                        100,
+                        Math.round((totalUploaded / totalSize) * 100)
+                    );
 
-                    // ONLY UPDATE WHEN GLOBAL CHANGES
+                    console.log("GLOBAL %:", globalPercent);
                     onProgress(globalPercent, fileObj);
                 }
-
             );
 
             const etag = uploadRes.getResponseHeader("ETag").replace(/"/g, "");
