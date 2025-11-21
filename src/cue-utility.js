@@ -83,7 +83,6 @@ class CueFileUtility{
         xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
                 const percentage = Math.round((event.loaded / event.total) * 100);
-                console.log('IN upload', fileObj);
                 onProgress(percentage, fileObj)
             }
         };
@@ -104,22 +103,17 @@ class CueFileUtility{
             xhr.onerror = () => {
                 reject({ error: 'Upload failed due to network error' });
             };
-                    console.log('single fileObj', fileObj);
-
             xhr.send(fileObj);
         });
-        console.log('single post', response);
         return response;
     }
 
     async singleFileUpload({fileObj, apiEndpoint, authToken, submissionId, endpointParams}, onProgress) {
-        console.log('single file upload');
         const hash  = await this.generateHash(fileObj);
         const fileType = await this.validateFileType(fileObj);
 
         let presignedUrlResponse;
         let etag;
-        console.log('apiEndpoint', apiEndpoint);
 
         try {
             presignedUrlResponse = await fetch(apiEndpoint, {
@@ -176,8 +170,6 @@ class CueFileUtility{
 
         // START MULTIPART UPLOAD
         let startResp;
-        console.log('Upload started');
-        console.log('endpointParams',endpointParams);
         try {
             startResp = await fetch(apiEndpoint, {
                 method: 'POST',
@@ -199,10 +191,8 @@ class CueFileUtility{
             return ({error: "Failed to get upload URL"});
         }
 
-        console.log('startResp', startResp);
         const fileId = startResp.file_id;
         const uploadId = startResp.upload_id;
-        console.log('uploadId', uploadId);
 
         if (!fileId || !uploadId) {
             return { error: "Invalid multipart start response" };
@@ -216,7 +206,6 @@ class CueFileUtility{
         const uploadedParts = [];
 
         let uploadedBytes = 0; // TRACK BYTES FOR GLOBAL PROGRESS
-        console.log('SPLIT');
 
         for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
             const start = (partNumber - 1) * this.chunkSize;
@@ -257,8 +246,6 @@ class CueFileUtility{
                 return { error: `Failed to get presigned URL for part ${partNumber}` };
             }
 
-            console.log('presignedResp.presigned_url', presignedResp.presigned_url);
-
             const presignedUrl = presignedResp.presigned_url;
             if (!presignedUrl) {
                 return { error: `Missing presigned URL for part ${partNumber}` };
@@ -285,8 +272,6 @@ class CueFileUtility{
                 console.error(err);
                 return { error: `Failed to upload part ${partNumber}` };
             }
-            console.log('chunkSize',chunkSize);
-
             // Part upload is fully complete → commit bytes
             uploadedBytes += chunkSize;
 
@@ -297,11 +282,9 @@ class CueFileUtility{
                 ETag: etag.replace(/"/g, "")
             });
         }
-        console.log("STRINGIFIED parts:", JSON.stringify(uploadedParts));
 
         // FINAL CHECKSUM + COMPLETE MULTIPART UPLOAD
         const finalChecksum = await this.generateHash(fileObj);
-        console.log('finalChecksum',finalChecksum);
 
         let completeResp;
         try {
@@ -327,8 +310,6 @@ class CueFileUtility{
             console.error(err);
             return { error: "Failed to complete multipart upload" };
         }
-
-        console.log('completeResp',completeResp);
 
         return completeResp;
     }
