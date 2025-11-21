@@ -81,10 +81,17 @@ class CueFileUtility{
 
         // Configure progress tracking
         xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-                const percentage = Math.round((event.loaded / event.total) * 100);
-                onProgress(percentage, fileObj)
+            let percent;
+
+            if (event.lengthComputable && event.total > 0) {
+                percent = Math.round((event.loaded / event.total) * 100);
+            } else {
+                // fallback if browser does not report total
+                percent = Math.round((event.loaded / fileObj.size) * 100);
             }
+
+            console.log("Chunk %:", percent);
+            onProgress(percent, fileObj);
         };
 
         // Send the request
