@@ -294,7 +294,7 @@ class CueFileUtility{
 
             uploadedParts.push({
                 PartNumber: partNumber,
-                ETag: etag.replace(/"/g, "")
+                ETag: `""${etag.replace(/"/g, "")}""`
             });
         }
 
