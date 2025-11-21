@@ -273,6 +273,7 @@ class CueFileUtility{
     // ============================================================
 
     const finalChecksum = await this.generateHash(fileObj);
+    uploadedParts.sort((a, b) => a.PartNumber - b.PartNumber);
 
     const completeResp = await fetch(
         `${new URL(apiEndpoint).origin}/api/data/upload/complete`,
