@@ -73,8 +73,8 @@ class CueFileUtility{
         else return fileType;
     }
 
-    async signedPost(url, blobSlice, contentType, fileSize, onChunkProgress) {
-
+    async signedPost(url, fileObj, blobSlice, contentType, fileSize, onChunkProgress) {
+        
         // Create XMLHttpRequest object
         // This is used over fetch because it allow progress tracking
         const xhr = new XMLHttpRequest();
