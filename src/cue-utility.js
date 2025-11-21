@@ -73,7 +73,7 @@ class CueFileUtility{
         else return fileType;
     }
 
-    async signedPost(url, fileObj, contentType, fileSize, onProgress) {
+    async signedPost(url, blobSlice, contentType, fileSize, onProgress) {
 
         // Create XMLHttpRequest object
         // This is used over fetch because it allow progress tracking
@@ -87,11 +87,8 @@ class CueFileUtility{
                 percent = Math.round((event.loaded / event.total) * 100);
             } else {
                 // fallback if browser does not report total
-                percent = Math.round((event.loaded / fileObj.size) * 100);
+                percent = Math.round((event.loaded / blobSlice.size) * 100);
             }
-
-            console.log("Chunk %:", percent);
-            onProgress(percent, fileObj);
         };
 
         // Send the request
@@ -110,7 +107,7 @@ class CueFileUtility{
             xhr.onerror = () => {
                 reject({ error: 'Upload failed due to network error' });
             };
-            xhr.send(fileObj);
+            xhr.send(blobSlice);
         });
         return response;
     }
@@ -260,9 +257,10 @@ class CueFileUtility{
                     const totalUploaded = Object.values(partProgress).reduce((s, v) => s + v, 0);
 
                     const globalPercent = Math.min(100, Math.round((totalUploaded / totalSize) * 100));
+                    console.log("globalPercent %:", globalPercent);
 
                     // ONLY UPDATE WHEN GLOBAL CHANGES
-                    onProgress(globalPercent, blobSlice);
+                    onProgress(globalPercent, fileObj);
                 }
 
             );
