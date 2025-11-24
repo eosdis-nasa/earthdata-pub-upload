@@ -9,15 +9,17 @@ const saveAs = fileSaver.saveAs;
 // Ignoring for coverage due to an inability to meaningfully mock
 // File and FileReader objects in the test environment
 /* istanbul ignore next */
-async function unit8ToBase64(unit8Array) {
-    // use a FileReader to generate a base64 data URI:
-    const base64url = await new Promise(r => {
-        const reader = new FileReader()
-        reader.onload = () => r(reader.result)
-        reader.readAsDataURL(new Blob([unit8Array]))
-    });
-    // remove the `data:...;base64,` part from the start
-    return base64url.slice(base64url.indexOf(',') + 1);        
+function uint8ToBase64(uint8) {
+    const chunkSize = 0x8000; 
+    let binary = "";
+
+    for (let i = 0; i < uint8.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(
+            null,
+            uint8.subarray(i, i + chunkSize)
+        );
+    }
+    return btoa(binary);
 }
 
 class CueFileUtility{
@@ -26,23 +28,8 @@ class CueFileUtility{
     multiPartUploadThreshold = 100 * 1024 * 1024; // 100MB based on https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html
     maxSingleFileSize = 5 * 1024 * 1024 * 1024; // 5GB
     /* istanbul ignore next */
-    fileReader = new FileReader();
     hasher = null;
 
-    
-    // Ignoring for coverage due to an inability to meaningfully mock
-    // File and FileReader objects in the test environment
-   /* istanbul ignore next */
-    hashChunk(chunk){
-        return new Promise((resolve, reject) => {
-             this.fileReader.onload = async (e) => {
-                const view = new Uint8Array(e.target.result);
-                this.hasher.update(view);
-                resolve();
-            };
-            this.fileReader.readAsArrayBuffer(chunk);
-        });
-    }
     // Ignoring for coverage due to an inability to meaningfully mock
     //File and FileReader objects in the test environment
     /* istanbul ignore next */
@@ -67,7 +54,7 @@ class CueFileUtility{
         const hash = this.hasher.digest('binary');
 
         // Convert to Base64
-        const hashBase64 = await unit8ToBase64(hash);
+        const hashBase64 = uint8ToBase64(hash);
 
         return Promise.resolve(hashBase64);
     }
@@ -290,7 +277,7 @@ class CueFileUtility{
         await Promise.all(uploadQueue);
 
         // STEP 3 — COMPLETE UPLOAD
-        const finalChecksum = await this.generateHash(fileObj);
+        const finalChecksum = hash;
         uploadedParts.sort((a, b) => a.PartNumber - b.PartNumber);
 
         const completeResp = await fetch(
