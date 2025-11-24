@@ -46,25 +46,32 @@ class CueFileUtility{
     // Ignoring for coverage due to an inability to meaningfully mock
     //File and FileReader objects in the test environment
     /* istanbul ignore next */
-    async generateHash(fileObj){
-        if (this.hasher){
+    async generateHash(fileObj) {
+        if (this.hasher) {
             this.hasher.init();
         } else {
             this.hasher = await createSHA256();
         }
 
-        const chunkNumber = Math.floor(fileObj.size / this.chunkSize);
-        for (let i = 0; i <= chunkNumber; i++){
-            const chunk = fileObj.slice(
-                i * this.chunkSize,
-                Math.min(this.chunkSize * (i + 1), fileObj.size)
-            )
-            await this.hashChunk(chunk);
+        // Stream the file in optimal chunks (browser native)
+        const reader = fileObj.stream().getReader();
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            // Update hash incrementally
+            this.hasher.update(value);
         }
+
+        // Final digest
         const hash = this.hasher.digest('binary');
+
+        // Convert to Base64
         const hashBase64 = await unit8ToBase64(hash);
+
         return Promise.resolve(hashBase64);
-    };
+    }
+
 
     async validateFileType(fileObj){
         const fileType = mime.getType(fileObj.name.split('.').pop());
