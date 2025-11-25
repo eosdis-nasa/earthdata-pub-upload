@@ -257,7 +257,6 @@ class CueFileUtility{
                         Math.round((totalUploaded / totalSize) * 100)
                     );
 
-                    console.log("GLOBAL %:", globalPercent);
                     onProgress(globalPercent, fileObj);
                 }
             );
