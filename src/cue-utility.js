@@ -60,11 +60,47 @@ class CueFileUtility{
     }
 
 
-    async validateFileType(fileObj){
-        const fileType = mime.getType(fileObj.name.split('.').pop());
-        if (fileType === 'application/x-msdownload'||
-            fileType === 'application/octet-stream') return '';
-        else return fileType;
+    // async validateFileType(fileObj){
+    //     const fileType = mime.getType(fileObj.name.split('.').pop());
+    //     if (fileType === 'application/x-msdownload'||
+    //         fileType === 'application/octet-stream') return '';
+    //     else return fileType;
+    // }
+
+    async validateFileType(fileObj) {
+        const ext = fileObj.name.split('.').pop().toLowerCase();
+        let type = fileObj.type;
+
+        // Explicit mappings for Office file types (fix for mime/lite)
+        const officeTypes = {
+            doc:  "application/msword",
+            docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+
+            xls:  "application/vnd.ms-excel",
+            xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+            ppt:  "application/vnd.ms-powerpoint",
+            pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        };
+
+        if (officeTypes[ext]) {
+            return officeTypes[ext];
+        }
+
+        // If browser provided a type, and it's NOT octet-stream, accept it
+        if (type && type !== 'application/octet-stream' &&
+                    type !== 'application/x-msdownload') {
+            return type;
+        }
+
+        // Fallback to mime/lite for other extensions
+        const mimeType = mime.getType(ext);
+        if (mimeType && mimeType !== 'application/octet-stream' &&
+                        mimeType !== 'application/x-msdownload') {
+            return mimeType;
+        }
+
+        return mimeType;
     }
 
     async signedPost(url, blobSlice, contentType, fileSize, onChunkProgress) {
