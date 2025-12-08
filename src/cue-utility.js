@@ -25,8 +25,6 @@ function uint8ToBase64(uint8) {
 class CueFileUtility{
 
     chunkSize  = 100 * 1024 * 1024; // 100MB
-    multiPartUploadThreshold = 100 * 1024 * 1024; // 100MB based on https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html
-    maxSingleFileSize = 5 * 1024 * 1024 * 1024; // 5GB
     /* istanbul ignore next */
     hasher = null;
 
@@ -68,7 +66,7 @@ class CueFileUtility{
     }
 
 
-    async signedPost(url, blobSlice, contentType, fileSize, onChunkProgress) {
+    async signedPost(url, blobSlice, onChunkProgress) {
         
         // Create XMLHttpRequest object
         // This is used over fetch because it allow progress tracking
@@ -105,62 +103,6 @@ class CueFileUtility{
             xhr.send(blobSlice);
         });
         return response;
-    }
-
-    async singleFileUpload({fileObj, apiEndpoint, authToken, submissionId, endpointParams}, onProgress) {
-        const hash  = await this.generateHash(fileObj);
-        const fileType = await this.validateFileType(fileObj);
-
-        let presignedUrlResponse;
-        let etag;
-
-        try {
-            presignedUrlResponse = await fetch(apiEndpoint, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    file_name: fileObj.name,
-                    file_type: fileType,
-                    checksum_value: hash,
-                    file_size_bytes: fileObj.size,
-                    ...(submissionId && {submission_id: submissionId}),
-                    ...endpointParams
-                })
-            }).then((response)=>response.json());
-            if(presignedUrlResponse.error) return ({error: presignedUrlResponse.error});
-        } catch (err) {
-            return ({error: "Failed to get upload URL"});
-        }
-        try{
-            const uploadResult = await this.signedPost(presignedUrlResponse.presigned_url, fileObj, fileType, fileObj.size, onProgress);
-            etag = uploadResult.getResponseHeader('ETag');
-        }catch(err){
-            console.error(err);
-            return ({error: "Failed to upload to bucket"});
-        }
-        try{
-            const completeResponse = await fetch(`${(new URL(apiEndpoint)).origin}/api/data/upload/complete`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${authToken}`
-                },
-                body: JSON.stringify({
-                    file_id: presignedUrlResponse.file_id,
-                    file_name: fileObj.name,
-                    file_size_bytes: fileObj.size,
-                    checksum_value: hash,
-                    collection_path: presignedUrlResponse.collection_path,
-                    content_type: fileType,
-                    etags: [ { PartNumber: 1, Etag: etag}]
-                })
-            });
-            return completeResponse.json();
-        }catch(err){
-            return ({error: "Unable to confirm upload to CUE"})
-        }
     }
 
     // MULTIPART PARALLEL UPLOAD
@@ -309,9 +251,6 @@ class CueFileUtility{
 
     async uploadFile(params, onProgress){
         return this.multiPartUpload(params, onProgress);
-        // TODO - Include multipart upload logic
-        // if (params.fileObj.size < this.multiPartUploadThreshold) return this.singleFileUpload(params, onProgress);
-        // return {error: "Multipart upload not implemented"}
     };
 
     // Ignoring coverage due to an inability to meaningfully mock fetch
