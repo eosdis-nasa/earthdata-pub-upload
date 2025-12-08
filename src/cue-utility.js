@@ -186,8 +186,6 @@ class CueFileUtility{
             const uploadRes = await this.signedPost(
                 presignedUrl,
                 blobSlice,
-                fileType,
-                blobSlice.size,
                 (percent) => {
                     // per-chunk progress (percent)
                     partProgress[partNumber] = percent * blobSlice.size / 100;
