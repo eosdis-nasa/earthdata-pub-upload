@@ -60,11 +60,47 @@ class CueFileUtility{
     }
 
 
-    async validateFileType(fileObj){
-        const fileType = mime.getType(fileObj.name.split('.').pop());
-        if (fileType === 'application/x-msdownload'||
-            fileType === 'application/octet-stream') return '';
-        else return fileType;
+    async validateFileType(fileObj) {
+        const ext = fileObj.name.split('.').pop().toLowerCase();
+        let browserType = fileObj.type || "";
+
+        // Explicit mappings for Microsoft Office file types
+        const officeTypes = {
+            doc:  "application/msword",
+            docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+
+            xls:  "application/vnd.ms-excel",
+            xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+            ppt:  "application/vnd.ms-powerpoint",
+            pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        };
+
+        // Office type
+        if (officeTypes[ext]) {
+            return officeTypes[ext];
+        }
+
+        // Use browser type if it's reliable
+        if (
+            browserType &&
+            !["application/octet-stream", "application/x-msdownload"].includes(browserType)
+        ) {
+            return browserType;
+        }
+
+        // Try mime/lite fallback by extension
+        const mimeType = mime.getType(ext);
+
+        if (
+            mimeType &&
+            !["application/octet-stream", "application/x-msdownload"].includes(mimeType)
+        ) {
+            return mimeType;
+        }
+
+        // return a safe generic type
+        return "application/octet-stream";
     }
 
 
