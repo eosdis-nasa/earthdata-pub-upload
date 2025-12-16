@@ -31,7 +31,7 @@ class CueFileUtility{
     // Ignoring for coverage due to an inability to meaningfully mock
     //File and FileReader objects in the test environment
     /* istanbul ignore next */
-    async generateHash(fileObj) {
+    async generateHash(fileObj, onHashProgress) {
         if (this.hasher) {
             this.hasher.init();
         } else {
@@ -40,21 +40,35 @@ class CueFileUtility{
 
         // Stream the file in optimal chunks (browser native)
         const reader = fileObj.stream().getReader();
+        const totalSize = fileObj.size;
+        let processed = 0;
 
         while (true) {
             const { value, done } = await reader.read();
             if (done) break;
             // Update hash incrementally
             this.hasher.update(value);
+            processed += value.length;
+
+            if (onHashProgress) {
+                const percent = Math.min(
+                    20,
+                    Math.round((processed / totalSize) * 20)
+                );
+
+                onHashProgress(
+                    {
+                        percent,
+                        etaSeconds: null,
+                        uploadedBytes: 0,
+                        totalBytes: totalSize
+                    }
+                );
+            }
         }
 
-        // Final digest
         const hash = this.hasher.digest('binary');
-
-        // Convert to Base64
-        const hashBase64 = uint8ToBase64(hash);
-
-        return Promise.resolve(hashBase64);
+        return uint8ToBase64(hash);
     }
 
 
@@ -144,7 +158,17 @@ class CueFileUtility{
     // MULTIPART PARALLEL UPLOAD
     async multiPartUpload({ fileObj, apiEndpoint, authToken, submissionId, endpointParams }, onProgress) {
         const fileType = await this.validateFileType(fileObj);
-        const hash = await this.generateHash(fileObj);
+        const hash = await this.generateHash(fileObj, (percent) => {
+            onProgress(
+                {
+                    percent,
+                    etaSeconds: null,
+                    uploadedBytes: 0,
+                    totalBytes: fileObj.size
+                },
+                fileObj
+            );
+        });
 
         // STEP 1 — START
         const startResp = await fetch(apiEndpoint, {
@@ -169,6 +193,8 @@ class CueFileUtility{
         const uploadId = startResp.upload_id;
 
         const totalSize = fileObj.size;
+        const uploadStartTime = Date.now();
+        let lastReportedPercent = 0;
         const totalParts = Math.ceil(totalSize / this.chunkSize);
         const uploadedParts = [];
         const partProgress = {};
@@ -223,18 +249,41 @@ class CueFileUtility{
                 presignedUrl,
                 blobSlice,
                 (percent) => {
-                    // per-chunk progress (percent)
-                    partProgress[partNumber] = percent * blobSlice.size / 100;
+                    // bytes uploaded for this part
+                    partProgress[partNumber] = (percent / 100) * blobSlice.size;
 
+                    // total bytes uploaded across all parts
                     const totalUploaded = Object.values(partProgress)
                         .reduce((s, v) => s + v, 0);
 
-                    const globalPercent = Math.min(
-                        100,
-                        Math.round((totalUploaded / totalSize) * 100)
-                    );
+                    // Progress mapping
+                    const uploadPercent = Math.round((totalUploaded / totalSize) * 80);
+                    const globalPercent = Math.min(100, 20 + uploadPercent);
 
-                    onProgress(globalPercent, fileObj);
+                    // ETA calculation
+                    const elapsedSeconds = (Date.now() - uploadStartTime) / 1000;
+
+                    let etaSeconds = null;
+                    if (elapsedSeconds > 0 && totalUploaded > 0) {
+                        const speed = totalUploaded / elapsedSeconds; // bytes/sec
+                        const remainingBytes = totalSize - totalUploaded;
+                        etaSeconds = Math.round(remainingBytes / speed);
+                    }
+
+                    // Prevent progress going backwards (parallel uploads)
+                    const safePercent = Math.max(lastReportedPercent, globalPercent);
+                    lastReportedPercent = safePercent;
+
+                    // Send progress + ETA
+                    onProgress(
+                        {
+                            percent: safePercent,
+                            etaSeconds,
+                            uploadedBytes: totalUploaded,
+                            totalBytes: totalSize
+                        },
+                        fileObj
+                    );
                 }
             );
 
