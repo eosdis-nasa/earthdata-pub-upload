@@ -42,6 +42,10 @@ class CueFileUtility{
         const reader = fileObj.stream().getReader();
         const totalSize = fileObj.size;
         let processed = 0;
+        const startTime = Date.now();
+
+        // Fallback upload speed if none known yet (8 MB/s is safe)
+        const DEFAULT_UPLOAD_SPEED = 8 * 1024 * 1024;
 
         while (true) {
             const { value, done } = await reader.read();
@@ -51,20 +55,30 @@ class CueFileUtility{
             processed += value.length;
 
             if (onHashProgress) {
-                const percent = Math.min(
-                    20,
-                    Math.round((processed / totalSize) * 20)
+                const checksumPercent = Math.round((processed / totalSize) * 20);
+
+                const elapsed = (Date.now() - startTime) / 1000;
+                const checksumSpeed = elapsed > 0 ? processed / elapsed : 0;
+                const checksumRemainingBytes = totalSize - processed;
+                const checksumRemainingTime =
+                    checksumSpeed > 0 ? checksumRemainingBytes / checksumSpeed : 0;
+
+                // Estimate upload time BEFORE upload starts
+                const uploadSpeedEstimate = this.avgUploadSpeed || Math.min(checksumSpeed, DEFAULT_UPLOAD_SPEED);
+
+                const estimatedUploadTime = totalSize / uploadSpeedEstimate;
+
+                const totalEtaSeconds = Math.round(
+                    checksumRemainingTime + estimatedUploadTime
                 );
 
-                onHashProgress(
-                    {
-                        percent,
-                        phase: 'checksum',
-                        etaSeconds: null,
-                        uploadedBytes: 0,
-                        totalBytes: totalSize
-                    }
-                );
+                onHashProgress({
+                    percent: Math.min(20, checksumPercent),
+                    phase: 'checksum',
+                    etaSeconds: totalEtaSeconds,
+                    uploadedBytes: processed,
+                    totalBytes: totalSize
+                });
             }
         }
 
@@ -259,9 +273,22 @@ class CueFileUtility{
 
                     let etaSeconds = null;
                     if (elapsedSeconds > 0 && totalUploaded > 0) {
-                        const speed = totalUploaded / elapsedSeconds; // bytes/sec
+                        const speed = totalUploaded / elapsedSeconds;
+
+                        // Smooth the upload speed (EMA)
+                        const SMOOTHING = 0.25;
+
+                        if (!this.avgUploadSpeed) {
+                        this.avgUploadSpeed = speed;
+                        } else {
+                        this.avgUploadSpeed =
+                            this.avgUploadSpeed * (1 - SMOOTHING) +
+                            speed * SMOOTHING;
+                        }
+
                         const remainingBytes = totalSize - totalUploaded;
-                        etaSeconds = Math.round(remainingBytes / speed);
+                        etaSeconds = Math.round(remainingBytes / this.avgUploadSpeed);
+
                     }
 
                     // Prevent progress going backwards (parallel uploads)
@@ -325,7 +352,9 @@ class CueFileUtility{
         return completeResp;
     }
 
-    constructor(){};
+    constructor() {
+        this.avgUploadSpeed = null;
+    }
 
     async uploadFile(params, onProgress){
         return this.multiPartUpload(params, onProgress);
