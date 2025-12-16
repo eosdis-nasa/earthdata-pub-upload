@@ -59,6 +59,7 @@ class CueFileUtility{
                 onHashProgress(
                     {
                         percent,
+                        phase: 'checksum',
                         etaSeconds: null,
                         uploadedBytes: 0,
                         totalBytes: totalSize
@@ -271,6 +272,7 @@ class CueFileUtility{
                     onProgress(
                         {
                             percent: safePercent,
+                            phase: 'upload',
                             etaSeconds,
                             uploadedBytes: totalUploaded,
                             totalBytes: totalSize
