@@ -43,9 +43,20 @@ class CueFileUtility{
         const totalSize = fileObj.size;
         let processed = 0;
         const startTime = Date.now();
+        let lastReportedPercent = -1;
 
         // Fallback upload speed if none known yet (8 MB/s is safe)
         const DEFAULT_UPLOAD_SPEED = 8 * 1024 * 1024;
+
+        if (onHashProgress) {
+            onHashProgress({
+                percent: 0,
+                phase: 'checksum',
+                etaSeconds: null,
+                uploadedBytes: 0,
+                totalBytes: totalSize
+            });
+        }
 
         while (true) {
             const { value, done } = await reader.read();
@@ -55,7 +66,7 @@ class CueFileUtility{
             processed += value.length;
 
             if (onHashProgress) {
-                const checksumPercent = Math.round((processed / totalSize) * 20);
+                const checksumPercent = Math.floor((processed / totalSize) * 20);
 
                 const elapsed = (Date.now() - startTime) / 1000;
                 const checksumSpeed = elapsed > 0 ? processed / elapsed : 0;
@@ -72,13 +83,17 @@ class CueFileUtility{
                     checksumRemainingTime + estimatedUploadTime
                 );
 
-                onHashProgress({
-                    percent: Math.min(20, checksumPercent),
-                    phase: 'checksum',
-                    etaSeconds: totalEtaSeconds,
-                    uploadedBytes: processed,
-                    totalBytes: totalSize
-                });
+                if (checksumPercent !== lastReportedPercent) {
+                    lastReportedPercent = checksumPercent;
+
+                    onHashProgress({
+                        percent: Math.min(20, checksumPercent),
+                        phase: 'checksum',
+                        etaSeconds: totalEtaSeconds,
+                        uploadedBytes: processed,
+                        totalBytes: totalSize
+                    });
+                }
             }
         }
 
