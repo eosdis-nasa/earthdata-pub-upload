@@ -22,6 +22,10 @@ function uint8ToBase64(uint8) {
     return btoa(binary);
 }
 
+function yieldToBrowser() {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 class CueFileUtility{
 
     chunkSize  = 100 * 1024 * 1024; // 100MB
@@ -31,62 +35,73 @@ class CueFileUtility{
     // Ignoring for coverage due to an inability to meaningfully mock
     //File and FileReader objects in the test environment
     /* istanbul ignore next */
-    generateHash(fileObj, onHashProgress) {
+    /* istanbul ignore next */
+    async generateHash(fileObj, onHashProgress) {
         this.avgUploadSpeed = null;
-        return new Promise(async (resolve, reject) => {
-            const totalBytes = fileObj.size;
 
-            let fakePercent = 0;
-            let stopped = false;
+        const totalBytes = fileObj.size;
+        let fakePercent = 0;
+        let stopped = false;
 
-            // Fake checksum progress (0 → 19%)
-            const fakeTimer = setInterval(() => {
+        const fakeTimer = setInterval(() => {
             if (stopped) return;
 
-            fakePercent += Math.random() * 1.5; // slow, uneven increments
+            // Scale fake speed with file size
+            const maxStep = Math.max(
+            0.3,
+            Math.min(1.2, totalBytes / (500 * 1024 * 1024))
+            );
+
+            fakePercent += Math.random() * maxStep;
             if (fakePercent > 19) fakePercent = 19;
 
             onHashProgress?.({
-                percent: Math.floor(fakePercent),
-                phase: 'checksum',
-                etaSeconds: null,
-                uploadedBytes: Math.floor((fakePercent / 20) * totalBytes),
-                totalBytes
+            percent: Math.floor(fakePercent),
+            phase: 'checksum',
+            etaSeconds: null,
+            uploadedBytes: Math.floor((fakePercent / 20) * totalBytes),
+            totalBytes
             });
-            }, 200);
+        }, 200);
 
-            try {
-                const hasher = await createSHA256();
-                const reader = fileObj.stream().getReader();
+        try {
+            const hasher = await createSHA256();
+            const reader = fileObj.stream().getReader();
 
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    hasher.update(value);
+            let chunksProcessed = 0;
+
+            while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            hasher.update(value);
+            chunksProcessed++;
+
+                if (chunksProcessed % 5 === 0) {
+                    await yieldToBrowser();
                 }
-
-                const hashBytes = hasher.digest('binary');
-                const hash = uint8ToBase64(hashBytes);
-
-                stopped = true;
-                clearInterval(fakeTimer);
-
-                // Snap cleanly to 20%
-                onHashProgress?.({
-                    percent: 20,
-                    phase: 'checksum',
-                    etaSeconds: null,
-                    uploadedBytes: totalBytes,
-                    totalBytes
-                });
-
-                resolve(hash);
-            } catch (err) {
-                stopped = true;
-                clearInterval(fakeTimer);
-                reject(err);
             }
-        });
+
+            const hashBytes = hasher.digest('binary');
+            const hash = uint8ToBase64(hashBytes);
+
+            stopped = true;
+            clearInterval(fakeTimer);
+
+            onHashProgress?.({
+            percent: 20,
+            phase: 'checksum',
+            etaSeconds: null,
+            uploadedBytes: totalBytes,
+            totalBytes
+            });
+
+            return hash;
+        } catch (err) {
+            stopped = true;
+            clearInterval(fakeTimer);
+            throw err;
+        }
     }
 
 
