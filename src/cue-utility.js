@@ -31,75 +31,69 @@ class CueFileUtility{
     // Ignoring for coverage due to an inability to meaningfully mock
     //File and FileReader objects in the test environment
     /* istanbul ignore next */
-    async generateHash(fileObj, onHashProgress) {
-        if (this.hasher) {
-            this.hasher.init();
-        } else {
-            this.hasher = await createSHA256();
-        }
+    generateHash(fileObj, onHashProgress) {
+        this.avgUploadSpeed = null;
+        return new Promise((resolve, reject) => {
+            const worker = new Worker(
+            new URL('./hash.worker.js', import.meta.url)
+            );
 
-        // Stream the file in optimal chunks (browser native)
-        const reader = fileObj.stream().getReader();
-        const totalSize = fileObj.size;
-        let processed = 0;
-        const startTime = Date.now();
-        let lastReportedPercent = -1;
+            const DEFAULT_UPLOAD_SPEED = 8 * 1024 * 1024; // 8 MB/s
 
-        // Fallback upload speed if none known yet (8 MB/s is safe)
-        const DEFAULT_UPLOAD_SPEED = 8 * 1024 * 1024;
+            worker.postMessage({ file: fileObj });
 
-        if (onHashProgress) {
-            onHashProgress({
-                percent: 0,
-                phase: 'checksum',
-                etaSeconds: null,
-                uploadedBytes: 0,
-                totalBytes: totalSize
-            });
-        }
+            worker.onmessage = (e) => {
+            if (e.data.type === 'progress') {
+                const { processed, total, elapsedMs } = e.data;
 
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            // Update hash incrementally
-            this.hasher.update(value);
-            processed += value.length;
+                const checksumPercent = Math.floor((processed / total) * 20);
 
-            if (onHashProgress) {
-                const checksumPercent = Math.floor((processed / totalSize) * 20);
+                // checksum speed
+                const elapsedSec = elapsedMs / 1000;
+                const checksumSpeed =
+                elapsedSec > 0 ? processed / elapsedSec : 0;
 
-                const elapsed = (Date.now() - startTime) / 1000;
-                const checksumSpeed = elapsed > 0 ? processed / elapsed : 0;
-                const checksumRemainingBytes = totalSize - processed;
+                const remainingChecksumBytes = total - processed;
                 const checksumRemainingTime =
-                    checksumSpeed > 0 ? checksumRemainingBytes / checksumSpeed : 0;
+                checksumSpeed > 0
+                    ? remainingChecksumBytes / checksumSpeed
+                    : 0;
 
-                // Estimate upload time BEFORE upload starts
-                const uploadSpeedEstimate = this.avgUploadSpeed || Math.min(checksumSpeed, DEFAULT_UPLOAD_SPEED);
+                const uploadSpeedEstimate =
+                this.avgUploadSpeed ||
+                Math.min(checksumSpeed, DEFAULT_UPLOAD_SPEED);
 
-                const estimatedUploadTime = totalSize / uploadSpeedEstimate;
+                const estimatedUploadTime =
+                uploadSpeedEstimate > 0
+                    ? total / uploadSpeedEstimate
+                    : 0;
 
-                const totalEtaSeconds = Math.round(
-                    checksumRemainingTime + estimatedUploadTime
+                const etaSeconds = Math.round(
+                checksumRemainingTime + estimatedUploadTime
                 );
 
-                if (checksumPercent !== lastReportedPercent) {
-                    lastReportedPercent = checksumPercent;
-
-                    onHashProgress({
-                        percent: Math.min(20, checksumPercent),
-                        phase: 'checksum',
-                        etaSeconds: totalEtaSeconds,
-                        uploadedBytes: processed,
-                        totalBytes: totalSize
-                    });
-                }
+                onHashProgress?.({
+                    percent: Math.min(20, checksumPercent),
+                    phase: 'checksum',
+                    etaSeconds,
+                    uploadedBytes: processed,
+                    totalBytes: total
+                });
             }
-        }
 
-        const hash = this.hasher.digest('binary');
-        return uint8ToBase64(hash);
+            if (e.data.type === 'done') {
+                worker.terminate();
+                resolve(e.data.hash);
+            }
+        };
+
+            worker.onerror = (err) => {
+            worker.terminate();
+            reject(err);
+            };
+        });
     }
+
 
 
     async validateFileType(fileObj) {
