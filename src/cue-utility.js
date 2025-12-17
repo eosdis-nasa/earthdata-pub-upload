@@ -33,64 +33,59 @@ class CueFileUtility{
     /* istanbul ignore next */
     generateHash(fileObj, onHashProgress) {
         this.avgUploadSpeed = null;
-        return new Promise((resolve, reject) => {
-            const worker = new Worker(
-            new URL('./hash.worker.js', import.meta.url)
-            );
+        return new Promise(async (resolve, reject) => {
+            const totalBytes = fileObj.size;
 
-            const DEFAULT_UPLOAD_SPEED = 8 * 1024 * 1024; // 8 MB/s
+            let fakePercent = 0;
+            let stopped = false;
 
-            worker.postMessage({ file: fileObj });
+            // Fake checksum progress (0 → 19%)
+            const fakeTimer = setInterval(() => {
+            if (stopped) return;
 
-            worker.onmessage = (e) => {
-            if (e.data.type === 'progress') {
-                const { processed, total, elapsedMs } = e.data;
+            fakePercent += Math.random() * 1.5; // slow, uneven increments
+            if (fakePercent > 19) fakePercent = 19;
 
-                const checksumPercent = Math.floor((processed / total) * 20);
+            onHashProgress?.({
+                percent: Math.floor(fakePercent),
+                phase: 'checksum',
+                etaSeconds: null,
+                uploadedBytes: Math.floor((fakePercent / 20) * totalBytes),
+                totalBytes
+            });
+            }, 200);
 
-                // checksum speed
-                const elapsedSec = elapsedMs / 1000;
-                const checksumSpeed =
-                elapsedSec > 0 ? processed / elapsedSec : 0;
+            try {
+                const hasher = await createSHA256();
+                const reader = fileObj.stream().getReader();
 
-                const remainingChecksumBytes = total - processed;
-                const checksumRemainingTime =
-                checksumSpeed > 0
-                    ? remainingChecksumBytes / checksumSpeed
-                    : 0;
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    hasher.update(value);
+                }
 
-                const uploadSpeedEstimate =
-                this.avgUploadSpeed ||
-                Math.min(checksumSpeed, DEFAULT_UPLOAD_SPEED);
+                const hashBytes = hasher.digest('binary');
+                const hash = uint8ToBase64(hashBytes);
 
-                const estimatedUploadTime =
-                uploadSpeedEstimate > 0
-                    ? total / uploadSpeedEstimate
-                    : 0;
+                stopped = true;
+                clearInterval(fakeTimer);
 
-                const etaSeconds = Math.round(
-                checksumRemainingTime + estimatedUploadTime
-                );
-
+                // Snap cleanly to 20%
                 onHashProgress?.({
-                    percent: Math.min(20, checksumPercent),
+                    percent: 20,
                     phase: 'checksum',
-                    etaSeconds,
-                    uploadedBytes: processed,
-                    totalBytes: total
+                    etaSeconds: null,
+                    uploadedBytes: totalBytes,
+                    totalBytes
                 });
-            }
 
-            if (e.data.type === 'done') {
-                worker.terminate();
-                resolve(e.data.hash);
+                resolve(hash);
+            } catch (err) {
+                stopped = true;
+                clearInterval(fakeTimer);
+                reject(err);
             }
-        };
-
-            worker.onerror = (err) => {
-            worker.terminate();
-            reject(err);
-            };
         });
     }
 
