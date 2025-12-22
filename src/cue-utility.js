@@ -10,9 +10,16 @@ const saveAs = fileSaver.saveAs;
 // File and FileReader objects in the test environment
 /* istanbul ignore next */
 function uint8ToBase64(uint8) {
-    // Use 'latin1' to preserve a 1:1 byte → character mapping (0–255),
-  // which is required for btoa() to correctly Base64-encode binary data.
-  return btoa(new TextDecoder('latin1').decode(uint8));
+    const chunkSize = 0x8000; 
+    let binary = "";
+
+    for (let i = 0; i < uint8.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(
+            null,
+            uint8.subarray(i, i + chunkSize)
+        );
+    }
+    return btoa(binary);
 }
 
 
