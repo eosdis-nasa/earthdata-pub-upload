@@ -10,17 +10,11 @@ const saveAs = fileSaver.saveAs;
 // File and FileReader objects in the test environment
 /* istanbul ignore next */
 function uint8ToBase64(uint8) {
-    const chunkSize = 0x8000; 
-    let binary = "";
-
-    for (let i = 0; i < uint8.length; i += chunkSize) {
-        binary += String.fromCharCode.apply(
-            null,
-            uint8.subarray(i, i + chunkSize)
-        );
-    }
-    return btoa(binary);
+    // Use 'latin1' to preserve a 1:1 byte → character mapping (0–255),
+  // which is required for btoa() to correctly Base64-encode binary data.
+  return btoa(new TextDecoder('latin1').decode(uint8));
 }
+
 
 function yieldToBrowser() {
   return new Promise(resolve => setTimeout(resolve, 0));
@@ -28,13 +22,12 @@ function yieldToBrowser() {
 
 class CueFileUtility{
 
-    chunkSize  = 100 * 1024 * 1024; // 100MB
+    chunkSize  = 32 * 1024 * 1024; // 32MB
     /* istanbul ignore next */
     hasher = null;
 
     // Ignoring for coverage due to an inability to meaningfully mock
     //File and FileReader objects in the test environment
-    /* istanbul ignore next */
     /* istanbul ignore next */
     async generateHash(fileObj, onHashProgress) {
         this.avgUploadSpeed = null;
@@ -194,6 +187,7 @@ class CueFileUtility{
 
     // MULTIPART PARALLEL UPLOAD
     async multiPartUpload({ fileObj, apiEndpoint, authToken, submissionId, endpointParams }, onProgress) {
+        let totalUploaded = 0;
         const fileType = await this.validateFileType(fileObj);
         const { hash, checksumEndPercent } = await this.generateHash(
             fileObj,
@@ -230,7 +224,11 @@ class CueFileUtility{
         const partProgress = {};
 
         // Concurrency limiter
-        const MAX_CONCURRENCY = 5;
+        const MAX_CONCURRENCY = Math.min(
+        8,
+        Math.max(3, Math.floor((navigator.hardwareConcurrency || 4) / 2))
+        );
+
         let active = 0;
         let index = 1;
 
@@ -279,55 +277,52 @@ class CueFileUtility{
                 presignedUrl,
                 blobSlice,
                 (percent) => {
-                    // bytes uploaded for this part
-                    partProgress[partNumber] = (percent / 100) * blobSlice.size;
+                    // New uploaded bytes for this part
+                    const newUploaded = (percent / 100) * blobSlice.size;
 
-                    // total bytes uploaded across all parts
-                    const totalUploaded = Object.values(partProgress)
-                        .reduce((s, v) => s + v, 0);
+                    // Delta since last progress event for this part
+                    const delta = newUploaded - partProgress[partNumber];
 
-                    // Progress mapping
+                    // Update per-part and global counters
+                    partProgress[partNumber] = newUploaded;
+                    totalUploaded += delta;
+
+                    // Map upload progress into remaining percentage range
                     const uploadRange = 100 - checksumEndPercent;
                     const uploadPercent = Math.round((totalUploaded / totalSize) * uploadRange);
                     const globalPercent = Math.min(100, checksumEndPercent + uploadPercent);
 
                     // ETA calculation
                     const elapsedSeconds = (Date.now() - uploadStartTime) / 1000;
-
                     let etaSeconds = null;
+
                     if (elapsedSeconds > 0 && totalUploaded > 0) {
-                        const speed = totalUploaded / elapsedSeconds;
+                    const speed = totalUploaded / elapsedSeconds;
 
-                        // Smooth the upload speed (EMA)
-                        const SMOOTHING = 0.25;
+                    // Exponential moving average for smooth ETA
+                    const SMOOTHING = 0.25;
+                    this.avgUploadSpeed = this.avgUploadSpeed
+                        ? this.avgUploadSpeed * (1 - SMOOTHING) + speed * SMOOTHING
+                        : speed;
 
-                        if (!this.avgUploadSpeed) {
-                        this.avgUploadSpeed = speed;
-                        } else {
-                        this.avgUploadSpeed =
-                            this.avgUploadSpeed * (1 - SMOOTHING) +
-                            speed * SMOOTHING;
-                        }
-
-                        const remainingBytes = totalSize - totalUploaded;
-                        etaSeconds = Math.round(remainingBytes / this.avgUploadSpeed);
-
+                    const remainingBytes = totalSize - totalUploaded;
+                    etaSeconds = Math.round(remainingBytes / this.avgUploadSpeed);
                     }
 
-                    // Prevent progress going backwards (parallel uploads)
+                    // Prevent progress going backwards
                     const safePercent = Math.max(lastReportedPercent, globalPercent);
                     lastReportedPercent = safePercent;
 
-                    // Send progress + ETA
+                    // Emit progress
                     onProgress(
-                        {
-                            percent: safePercent,
-                            phase: 'upload',
-                            etaSeconds,
-                            uploadedBytes: totalUploaded,
-                            totalBytes: totalSize
-                        },
-                        fileObj
+                    {
+                        percent: safePercent,
+                        phase: 'upload',
+                        etaSeconds,
+                        uploadedBytes: totalUploaded,
+                        totalBytes: totalSize,
+                    },
+                    fileObj
                     );
                 }
             );
