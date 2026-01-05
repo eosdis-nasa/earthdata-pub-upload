@@ -29,7 +29,7 @@ function yieldToBrowser() {
 
 class CueFileUtility{
 
-    chunkSize  = 32 * 1024 * 1024; // 32MB
+    chunkSize  = 4 * 1024 * 1024;
     /* istanbul ignore next */
     hasher = null;
 
@@ -160,7 +160,13 @@ class CueFileUtility{
         const xhr = new XMLHttpRequest();
 
         // Configure progress tracking
+        let lastEmit = 0;
+
         xhr.upload.onprogress = (event) => {
+            const now = performance.now();
+            if (now - lastEmit < 100) return; // emit every 100ms max
+            lastEmit = now;
+
             let percent = 0;
             if (event.lengthComputable) {
                 percent = Math.round((event.loaded / event.total) * 100);
@@ -168,9 +174,7 @@ class CueFileUtility{
                 percent = Math.round((event.loaded / blobSlice.size) * 100);
             }
 
-            if (onChunkProgress) {
-                onChunkProgress(percent);
-            }
+            onChunkProgress?.(percent);
         };
 
         xhr.open('PUT', url);
@@ -231,10 +235,7 @@ class CueFileUtility{
         const partProgress = {};
 
         // Concurrency limiter
-        const MAX_CONCURRENCY = Math.min(
-        8,
-        Math.max(3, Math.floor((navigator.hardwareConcurrency || 4) / 2))
-        );
+        const MAX_CONCURRENCY = Math.min(4, totalParts);
 
         let active = 0;
         let index = 1;
