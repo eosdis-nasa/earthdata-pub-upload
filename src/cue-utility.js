@@ -29,7 +29,7 @@ function yieldToBrowser() {
 
 class CueFileUtility{
 
-    chunkSize  = 4 * 1024 * 1024;
+    chunkSize  = 8 * 1024 * 1024;
     /* istanbul ignore next */
     hasher = null;
 
