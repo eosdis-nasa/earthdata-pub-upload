@@ -46,7 +46,7 @@ class CueFileUtility {
   minConcurrency = 2;
   maxConcurrency = 8;
 
-  REQUIRE_CHECKSUM_AT_START = true;
+  REQUIRE_CHECKSUM_AT_START = false;
 
   constructor() {
     this.avgUploadSpeed = null;
