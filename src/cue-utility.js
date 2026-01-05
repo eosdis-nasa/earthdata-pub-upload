@@ -348,9 +348,6 @@ class CueFileUtility {
     return completeResp;
   }
 
-    constructor() {
-        this.avgUploadSpeed = null;
-    }
 
     async uploadFile(params, onProgress){
         return this.multiPartUpload(params, onProgress);
