@@ -1,4 +1,3 @@
-
 const hashWasm = require('hash-wasm');
 const mime = require('mime/lite');
 const fileSaver = require('file-saver');
@@ -6,11 +5,9 @@ const fileSaver = require('file-saver');
 const createSHA256 = hashWasm.createSHA256;
 const saveAs = fileSaver.saveAs;
 
-// Ignoring for coverage due to an inability to meaningfully mock
-// File and FileReader objects in the test environment
 /* istanbul ignore next */
 function uint8ToBase64(uint8) {
-    const chunkSize = 0x8000; 
+    const chunkSize = 0x8000;
     let binary = "";
 
     for (let i = 0; i < uint8.length; i += chunkSize) {
@@ -22,115 +19,62 @@ function uint8ToBase64(uint8) {
     return btoa(binary);
 }
 
-
 function yieldToBrowser() {
-  return new Promise(resolve => setTimeout(resolve, 0));
+    return new Promise(resolve => setTimeout(resolve, 0));
 }
 
-class CueFileUtility{
+class CueFileUtility {
 
-    chunkSize  = 8 * 1024 * 1024;
-    /* istanbul ignore next */
-    hasher = null;
+    chunkSize = 8 * 1024 * 1024; // 8MB chunks (good for 10GB+)
 
-    // Ignoring for coverage due to an inability to meaningfully mock
-    //File and FileReader objects in the test environment
-    /* istanbul ignore next */
-    async generateHash(fileObj, onHashProgress) {
+    constructor() {
         this.avgUploadSpeed = null;
+    }
 
-        const totalBytes = fileObj.size;
-        const checksumEndPercent = 20 + Math.floor(Math.random() * 11);
-        const fakeCap = checksumEndPercent - 1;
+    /* ===============================
+       HASHING (PARALLEL, NO PROGRESS)
+       =============================== */
+    async generateHash(fileObj) {
+        const hasher = await createSHA256();
+        const reader = fileObj.stream().getReader();
 
-        let fakePercent = 0;
-        let stopped = false;
+        let chunks = 0;
 
-        const fakeTimer = setInterval(() => {
-            if (stopped) return;
-
-            const maxStep = Math.max(
-                0.3,
-                Math.min(1.2, totalBytes / (500 * 1024 * 1024))
-            );
-
-            fakePercent += Math.random() * maxStep;
-            if (fakePercent > fakeCap) fakePercent = fakeCap;
-
-            onHashProgress?.({
-                percent: Math.floor(fakePercent),
-                phase: 'checksum',
-                etaSeconds: null,
-                uploadedBytes: Math.floor((fakePercent / 20) * totalBytes),
-                totalBytes
-            });
-        }, 200);
-
-        try {
-            const hasher = await createSHA256();
-            const reader = fileObj.stream().getReader();
-
-            let chunksProcessed = 0;
-
-            while (true) {
+        while (true) {
             const { value, done } = await reader.read();
             if (done) break;
 
             hasher.update(value);
-            chunksProcessed++;
+            chunks++;
 
-                if (chunksProcessed % 5 === 0) {
-                    await yieldToBrowser();
-                }
+            // Yield occasionally to keep UI responsive
+            if (chunks % 5 === 0) {
+                await yieldToBrowser();
             }
-
-            const hashBytes = hasher.digest('binary');
-            const hash = uint8ToBase64(hashBytes);
-
-            stopped = true;
-            clearInterval(fakeTimer);
-
-            onHashProgress?.({
-            percent: checksumEndPercent,
-            phase: 'checksum',
-            etaSeconds: null,
-            uploadedBytes: totalBytes,
-            totalBytes
-            });
-
-            return { hash, checksumEndPercent };
-
-        } catch (err) {
-            stopped = true;
-            clearInterval(fakeTimer);
-            throw err;
         }
+
+        const hashBytes = hasher.digest('binary');
+        return uint8ToBase64(hashBytes);
     }
 
-
-
+    /* ===============================
+       FILE TYPE DETECTION
+       =============================== */
     async validateFileType(fileObj) {
         const ext = fileObj.name.split('.').pop().toLowerCase();
-        let browserType = fileObj.type || "";
+        const browserType = fileObj.type || "";
 
-        // Explicit mappings for Microsoft Office file types
         const officeTypes = {
-            doc:  "application/msword",
+            doc: "application/msword",
             docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-
-            xls:  "application/vnd.ms-excel",
+            xls: "application/vnd.ms-excel",
             xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-
-            ppt:  "application/vnd.ms-powerpoint",
+            ppt: "application/vnd.ms-powerpoint",
             pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation"
         };
 
-        // Office type
-        if (officeTypes[ext]) {
-            return officeTypes[ext];
-        }
+        if (officeTypes[ext]) return officeTypes[ext];
 
-        // Use browser type if it's reliable
         if (
             browserType &&
             !["application/octet-stream", "application/x-msdownload"].includes(browserType)
@@ -138,9 +82,7 @@ class CueFileUtility{
             return browserType;
         }
 
-        // Try mime/lite fallback by extension
         const mimeType = mime.getType(ext);
-
         if (
             mimeType &&
             !["application/octet-stream", "application/x-msdownload"].includes(mimeType)
@@ -148,64 +90,58 @@ class CueFileUtility{
             return mimeType;
         }
 
-        // return a safe generic type
         return "application/octet-stream";
     }
 
-
+    /* ===============================
+       SIGNED PART UPLOAD
+       =============================== */
     async signedPost(url, blobSlice, onChunkProgress) {
-        
-        // Create XMLHttpRequest object
-        // This is used over fetch because it allow progress tracking
         const xhr = new XMLHttpRequest();
-
-        // Configure progress tracking
         let lastEmit = 0;
 
         xhr.upload.onprogress = (event) => {
             const now = performance.now();
-            if (now - lastEmit < 100) return; // emit every 100ms max
+            if (now - lastEmit < 100) return;
             lastEmit = now;
 
-            let percent = 0;
-            if (event.lengthComputable) {
-                percent = Math.round((event.loaded / event.total) * 100);
-            } else {
-                percent = Math.round((event.loaded / blobSlice.size) * 100);
-            }
+            const percent = event.lengthComputable
+                ? Math.round((event.loaded / event.total) * 100)
+                : Math.round((event.loaded / blobSlice.size) * 100);
 
             onChunkProgress?.(percent);
         };
 
         xhr.open('PUT', url);
 
-        // Wrap XMLHttpRequest in a promise
-        const response = await new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             xhr.onload = () => {
-                if (xhr.status === 204 || xhr.status == 200) {
-                    resolve(xhr);
-                } else {
-                    reject({ error: `Upload failed with status ${xhr.status}` });
-                }
+                if (xhr.status === 200 || xhr.status === 204) resolve(xhr);
+                else reject(new Error(`Upload failed: ${xhr.status}`));
             };
-            xhr.onerror = () => {
-                reject({ error: 'Upload failed due to network error' });
-            };
+            xhr.onerror = () => reject(new Error("Network error"));
             xhr.send(blobSlice);
         });
-        return response;
     }
 
-    // MULTIPART PARALLEL UPLOAD
-    async multiPartUpload({ fileObj, apiEndpoint, authToken, submissionId, endpointParams }, onProgress) {
+    /* ===============================
+       MULTIPART UPLOAD (HASH + UPLOAD)
+       =============================== */
+    async multiPartUpload(
+        { fileObj, apiEndpoint, authToken, submissionId, endpointParams },
+        onProgress
+    ) {
         let totalUploaded = 0;
-        const fileType = await this.validateFileType(fileObj);
-        const { hash, checksumEndPercent } = await this.generateHash(
-            fileObj,
-            (progress) => onProgress(progress, fileObj)
-        );
+        const totalSize = fileObj.size;
+        const uploadStartTime = Date.now();
+        let lastReportedPercent = 0;
 
-        // STEP 1 — START
+        // Start hashing immediately (DO NOT await)
+        const hashPromise = this.generateHash(fileObj);
+
+        const fileType = await this.validateFileType(fileObj);
+
+        /* ---- STEP 1: START UPLOAD ---- */
         const startResp = await fetch(apiEndpoint, {
             method: "POST",
             headers: {
@@ -215,42 +151,32 @@ class CueFileUtility{
             body: JSON.stringify({
                 file_name: fileObj.name,
                 file_type: fileType,
-                checksum_value: hash,
-                file_size_bytes: fileObj.size,
+                file_size_bytes: totalSize,
                 ...(submissionId && { submission_id: submissionId }),
                 ...endpointParams,
             }),
-        }).then((r) => r.json());
+        }).then(r => r.json());
 
         if (startResp.error) return { error: startResp.error };
 
-        const fileId = startResp.file_id;
-        const uploadId = startResp.upload_id;
+        const { file_id: fileId, upload_id: uploadId } = startResp;
 
-        const totalSize = fileObj.size;
-        const uploadStartTime = Date.now();
-        let lastReportedPercent = 0;
         const totalParts = Math.ceil(totalSize / this.chunkSize);
         const uploadedParts = [];
         const partProgress = {};
 
-        // Concurrency limiter
-        const MAX_CONCURRENCY = Math.min(4, totalParts);
-
+        const MAX_CONCURRENCY = Math.min(8, totalParts); // Safe increase
         let active = 0;
         let index = 1;
 
         const waitForSlot = async () => {
             while (active >= MAX_CONCURRENCY) {
-                await new Promise((res) => setTimeout(res, 10));
+                await new Promise(res => setTimeout(res, 10));
             }
         };
 
-        const uploadQueue = [];
-
         const runNext = async () => {
             await waitForSlot();
-
             if (index > totalParts) return;
 
             const partNumber = index++;
@@ -261,7 +187,6 @@ class CueFileUtility{
             const end = Math.min(start + this.chunkSize, totalSize);
             const blobSlice = fileObj.slice(start, end);
 
-            // STEP 2A — GET PRESIGNED URL
             const presigned = await fetch(
                 `${new URL(apiEndpoint).origin}/api/data/upload/multipart/getPartUrl`,
                 {
@@ -276,84 +201,64 @@ class CueFileUtility{
                         part_number: partNumber,
                     }),
                 }
-            ).then((r) => r.json());
+            ).then(r => r.json());
 
-            const presignedUrl = presigned.presigned_url;
-
-            // STEP 2B — UPLOAD
             const uploadRes = await this.signedPost(
-                presignedUrl,
+                presigned.presigned_url,
                 blobSlice,
                 (percent) => {
-                    // New uploaded bytes for this part
                     const newUploaded = (percent / 100) * blobSlice.size;
-
-                    // Delta since last progress event for this part
                     const delta = newUploaded - partProgress[partNumber];
 
-                    // Update per-part and global counters
                     partProgress[partNumber] = newUploaded;
                     totalUploaded += delta;
 
-                    // Map upload progress into remaining percentage range
-                    const uploadRange = 100 - checksumEndPercent;
-                    const uploadPercent = Math.round((totalUploaded / totalSize) * uploadRange);
-                    const globalPercent = Math.min(100, checksumEndPercent + uploadPercent);
-
-                    // ETA calculation
-                    const elapsedSeconds = (Date.now() - uploadStartTime) / 1000;
-                    let etaSeconds = null;
-
-                    if (elapsedSeconds > 0 && totalUploaded > 0) {
-                    const speed = totalUploaded / elapsedSeconds;
-
-                    // Exponential moving average for smooth ETA
-                    const SMOOTHING = 0.25;
-                    this.avgUploadSpeed = this.avgUploadSpeed
-                        ? this.avgUploadSpeed * (1 - SMOOTHING) + speed * SMOOTHING
-                        : speed;
-
-                    const remainingBytes = totalSize - totalUploaded;
-                    etaSeconds = Math.round(remainingBytes / this.avgUploadSpeed);
+                    const elapsed = (Date.now() - uploadStartTime) / 1000;
+                    if (elapsed > 0) {
+                        const speed = totalUploaded / elapsed;
+                        this.avgUploadSpeed = this.avgUploadSpeed
+                            ? this.avgUploadSpeed * 0.75 + speed * 0.25
+                            : speed;
                     }
 
-                    // Prevent progress going backwards
-                    const safePercent = Math.max(lastReportedPercent, globalPercent);
-                    lastReportedPercent = safePercent;
+                    const etaSeconds = this.avgUploadSpeed
+                        ? Math.round((totalSize - totalUploaded) / this.avgUploadSpeed)
+                        : null;
 
-                    // Emit progress
-                    onProgress(
-                    {
-                        percent: safePercent,
-                        phase: 'upload',
+                    const percentGlobal = Math.max(
+                        lastReportedPercent,
+                        Math.round((totalUploaded / totalSize) * 100)
+                    );
+                    lastReportedPercent = percentGlobal;
+
+                    onProgress?.({
+                        percent: percentGlobal,
+                        phase: "upload",
                         etaSeconds,
                         uploadedBytes: totalUploaded,
                         totalBytes: totalSize,
-                    },
-                    fileObj
-                    );
+                    }, fileObj);
                 }
             );
 
-            const etag = uploadRes.getResponseHeader("ETag").replace(/"/g, "");
-            uploadedParts.push({ PartNumber: partNumber, ETag: etag });
+            uploadedParts.push({
+                PartNumber: partNumber,
+                ETag: uploadRes.getResponseHeader("ETag").replace(/"/g, "")
+            });
 
             active--;
             await runNext();
         };
 
-        // Start initial workers
-        for (let i = 0; i < MAX_CONCURRENCY && i < totalParts; i++) {
-            uploadQueue.push(runNext());
-        }
+        await Promise.all(
+            Array.from({ length: MAX_CONCURRENCY }, runNext)
+        );
 
-        await Promise.all(uploadQueue);
-
-        // STEP 3 — COMPLETE UPLOAD
-        const finalChecksum = hash;
+        /* ---- STEP 3: COMPLETE (WAIT FOR HASH HERE) ---- */
+        const finalChecksum = await hashPromise;
         uploadedParts.sort((a, b) => a.PartNumber - b.PartNumber);
 
-        const completeResp = await fetch(
+        return fetch(
             `${new URL(apiEndpoint).origin}/api/data/upload/complete`,
             {
                 method: "POST",
@@ -370,19 +275,13 @@ class CueFileUtility{
                     collection_path: startResp.collection_path,
                     content_type: fileType,
                     checksum: finalChecksum,
-                    final_file_size: fileObj.size,
+                    final_file_size: totalSize,
                 }),
             }
-        ).then((r) => r.json());
-
-        return completeResp;
+        ).then(r => r.json());
     }
 
-    constructor() {
-        this.avgUploadSpeed = null;
-    }
-
-    async uploadFile(params, onProgress){
+    async uploadFile(params, onProgress) {
         return this.multiPartUpload(params, onProgress);
     };
 
