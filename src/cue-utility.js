@@ -226,21 +226,40 @@ class CueFileUtility {
     const getPartUrl = async (partNumber) => {
       return await withRetry(
         async () => {
-          const presigned = await fetch(`${new URL(apiEndpoint).origin}/api/data/upload/multipart/getPartUrl`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              file_id: fileId,
-              upload_id: uploadId,
-              part_number: partNumber,
-            }),
-          }).then((r) => r.json());
+          const resp = await fetch(
+            `${new URL(apiEndpoint).origin}/api/data/upload/multipart/getPartUrl`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${authToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                file_id: fileId,
+                upload_id: uploadId,
+                part_number: partNumber,
+              }),
+            }
+          );
 
-          if (!presigned?.presigned_url) throw new Error("Missing presigned_url");
-          if (presigned?.status === 401 || presigned?.status === 403) throw new Error("Authentication failed");
+          const text = await resp.text();
+
+          // AUTH FAILED
+          if (resp.status === 401 || resp.status === 403) {
+            throw new Error("Authentication failed");
+          }
+
+          // Other HTTP errors
+          if (!resp.ok) {
+            throw new Error(`getPartUrl failed: HTTP ${resp.status}`);
+          }
+          
+          const presigned = JSON.parse(text);
+
+          if (!presigned?.presigned_url) {
+            throw new Error("Missing presigned_url");
+          }
+
           return presigned.presigned_url;
         },
         { retries: 4, baseDelayMs: 400 }
