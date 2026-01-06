@@ -240,6 +240,7 @@ class CueFileUtility {
           }).then((r) => r.json());
 
           if (!presigned?.presigned_url) throw new Error("Missing presigned_url");
+          if (presigned?.status === 401 || presigned?.status === 403) throw new Error("Authentication failed");
           return presigned.presigned_url;
         },
         { retries: 4, baseDelayMs: 400 }
