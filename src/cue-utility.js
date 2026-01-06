@@ -41,10 +41,9 @@ async function withRetry(fn, { retries = 5, baseDelayMs = 500, maxDelayMs = 10_0
 }
 
 class CueFileUtility {
-  // Tuneables
-  chunkSize = 8 * 1024 * 1024; // 16MB (safer faster than 8MB for big files; avoid >32MB in browsers)
+  chunkSize = 6 * 1024 * 1024;
   minConcurrency = 2;
-  maxConcurrency = 8;
+  maxConcurrency = 4;
 
   REQUIRE_CHECKSUM_AT_START = false;
 
@@ -114,7 +113,7 @@ class CueFileUtility {
 
     xhr.upload.onprogress = (event) => {
       const now = performance.now();
-      if (now - lastEmit < 120) return; // throttle
+      if (now - lastEmit < 2000) return; // throttle
       lastEmit = now;
 
       const percent = event.lengthComputable
